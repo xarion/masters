@@ -93,3 +93,4 @@ logs/*
 data/
 summaries/
 checkpoints/
+models/
