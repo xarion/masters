@@ -31,8 +31,10 @@ def copy_const_with_value(graph, operation, values):
     return copy_operation_to_graph(graph, tensor.op)
 
 
-def copy_operation_to_graph(graph, operation):
-    inputs = [graph.as_graph_element(input_object.op.name + ":0", allow_operation=False) for input_object in operation.inputs]
+def copy_operation_to_graph(graph, operation, replacements={}):
+    input_names = [input_object.op.name for input_object in operation.inputs]
+    new_input_names = map(lambda input_name: replacements.get(input_name, input_name), input_names)
+    inputs = [graph.as_graph_element(input_name + ":0", allow_operation=False) for input_name in new_input_names]
     output_dtypes = [output.dtype for output in operation.outputs]
     return graph.create_op(operation.type, inputs, output_dtypes, op_def=operation.op_def,
                            attrs=operation.node_def.attr, name=operation.name)
