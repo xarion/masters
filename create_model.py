@@ -9,6 +9,9 @@ hidden_nodes = 124
 # Training Data
 train_X = np.random.beta(0.5, 5, size=[1000, 1])
 train_Y = np.random.beta(0.1, 1, size=[1000, 1])
+train_X.sort(axis=0)
+train_Y.sort(axis=0)
+
 n_samples = train_X.shape[0]
 
 # tf Graph Input
@@ -30,7 +33,7 @@ pred = tf.nn.bias_add(tf.matmul(l2, W3), b3, name="pred")
 
 # Mean squared error
 cost = tf.reduce_sum(tf.pow(pred - Y, 2)) / (2 * n_samples) + \
-       (0.001 * tf.nn.l2_loss(W1) + 0.001 * tf.nn.l2_loss(W2) + 0.001 * tf.nn.l2_loss(W3))
+       0.0005 * (tf.nn.l2_loss(W1) + tf.nn.l2_loss(W2) + tf.nn.l2_loss(W3))
 # Gradient descent
 optimizer = tf.train.AdamOptimizer().minimize(cost)
 
