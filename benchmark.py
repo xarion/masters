@@ -14,7 +14,7 @@ flags.DEFINE_string("i", "", """Input tensor name""")  # shorthand for input_ten
 flags.DEFINE_integer("n", 1000, """How many times to run the inference""")  # shorthand for number_of_trials
 flags.DEFINE_string("ish", "", """Input Shape, comma separated""")  # shorthand for input_tensor_name
 
-# python benchmark.py --g="models/pruned_output.pb" --i="input:0" --o="pred:0" --n=10000
+# python benchmark.py --g="models/pruned_output.pb" --i="input:0" --o="pred:0" --n=10000 --ish=100,1
 
 
 def main(unused_args):
