@@ -1,12 +1,14 @@
 package masters.benchmark.android;
 
 
-public class BenchmarkScore {
+import java.util.Locale;
+
+public class BenchmarkResult {
   private long startMilliseconds;
   private long endMilliseconds;
 
 
-  public BenchmarkScore() {
+  public BenchmarkResult() {
   }
 
   public long getStartMilliseconds() {
@@ -23,5 +25,13 @@ public class BenchmarkScore {
 
   public void setEndMilliseconds(long endMilliseconds) {
     this.endMilliseconds = endMilliseconds;
+  }
+
+  @Override
+  public String toString() {
+    return String.format(Locale.US,
+        "BenchmarkResult\nstartMilliseconds=%d\nendMilliseconds=%d\ntotalTime=%d",
+        this.startMilliseconds, this.endMilliseconds,
+        this.endMilliseconds - this.startMilliseconds);
   }
 }

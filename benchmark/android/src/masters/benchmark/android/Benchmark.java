@@ -59,8 +59,8 @@ public class Benchmark {
    */
   public void benchmarkModel() {
     Trace.beginSection("benchmark");
-    BenchmarkScore benchmarkScore = new BenchmarkScore();
-    benchmarkScore.setStartMilliseconds(System.currentTimeMillis());
+    BenchmarkResult benchmarkResult = new BenchmarkResult();
+    benchmarkResult.setStartMilliseconds(System.currentTimeMillis());
     for (int runId = 1; runId <= this.numberOfRuns; runId += 1) {
       Trace.beginSection("single_run");
 
@@ -82,7 +82,7 @@ public class Benchmark {
       Trace.endSection();
       Trace.endSection();
     }
-    benchmarkScore.setEndMilliseconds(System.currentTimeMillis());
+    benchmarkResult.setEndMilliseconds(System.currentTimeMillis());
     Trace.endSection();
   }
 
