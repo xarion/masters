@@ -8,7 +8,7 @@
 
 def bazel_location = '/usr/local/bin/bazel'
 def cpuType = 'armeabi-v7a'
-def nativeDir = 'libs/'
+def nativeDir = 'libs/' + cpuType
 
 project.buildDir = 'gradleBuild'
 getProject().setBuildDir('gradleBuild')
@@ -28,7 +28,7 @@ buildscript {
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 23
+    compileSdkVersion 24
     buildToolsVersion "23.0.3"
 
     lintOptions {
