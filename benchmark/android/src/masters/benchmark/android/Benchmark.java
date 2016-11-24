@@ -6,6 +6,7 @@ import android.os.Trace;
 import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 
 import java.io.IOException;
+import java.util.Random;
 
 
 public class Benchmark {
@@ -29,6 +30,10 @@ public class Benchmark {
 
   private TensorFlowInferenceInterface inferenceInterface;
 
+  public Benchmark(AssetManager assetManager) throws IOException {
+    this.initializeBenchmark(assetManager);
+  }
+
   /**
    * Creates a BenchmarkConfiguration and initializes a native TensorFlow session using it.
    *
@@ -44,20 +49,23 @@ public class Benchmark {
     this.inputShape = config.getInputShape();
     int inputSize = config.getInputSize();
     this.floatValues = new float[inputSize];
-
+    Random random = new Random();
+    for (int index = 0; index < inputSize; index++) {
+      floatValues[index] = random.nextFloat();
+    }
     this.outputs = new float[config.getOutputSize()];
 
     this.numberOfRuns = config.getNumberOfRuns();
 
-    this.inferenceInterface = new TensorFlowInferenceInterface();
     String modelFileName = config.getModelFileName();
+    this.inferenceInterface = new TensorFlowInferenceInterface();
     return inferenceInterface.initializeTensorFlow(assetManager, modelFileName);
   }
 
   /**
    * Runs a benchmark for given configuration file.
    */
-  public void benchmarkModel() {
+  public BenchmarkResult benchmarkModel() {
     Trace.beginSection("benchmark");
     BenchmarkResult benchmarkResult = new BenchmarkResult();
     benchmarkResult.setStartMilliseconds(System.currentTimeMillis());
@@ -84,6 +92,7 @@ public class Benchmark {
     }
     benchmarkResult.setEndMilliseconds(System.currentTimeMillis());
     Trace.endSection();
+    return benchmarkResult;
   }
 
   public void close() {
