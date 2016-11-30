@@ -15,5 +15,5 @@
 -->
 <resources>
     <string name="title_activity_benchmark">BenchmarkActivity</string>
-    <string name="failed_benchmark_message">Some problem occurred, check logs.</string>
+
 </resources>

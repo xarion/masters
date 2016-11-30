@@ -6,21 +6,32 @@ import java.util.Locale;
 public class BenchmarkResult {
   private long startMilliseconds;
   private long endMilliseconds;
+  private int numberOfInferences;
+  private long runForMilliseconds;
+  private int initialBatteryLevel = -1;
+  private int finalBatteryLevel;
+  private int batteryScale;
 
-
-  public BenchmarkResult() {
+  public void initialize(long runForMilliseconds) {
+    this.runForMilliseconds = runForMilliseconds;
+    numberOfInferences = 0;
+    this.setStartMilliseconds(System.currentTimeMillis());
   }
 
-  public long getStartMilliseconds() {
-    return startMilliseconds;
+  public void finalizeBenchmark() {  // function name finalize is overriding Object.finalize
+    this.setEndMilliseconds(System.currentTimeMillis());
+  }
+
+  public boolean notFinished() {
+    return System.currentTimeMillis() - this.startMilliseconds < this.runForMilliseconds;
+  }
+
+  public void incrementNumberOfInferences() {
+    this.numberOfInferences += 1;
   }
 
   public void setStartMilliseconds(long startMilliseconds) {
     this.startMilliseconds = startMilliseconds;
-  }
-
-  public long getEndMilliseconds() {
-    return endMilliseconds;
   }
 
   public void setEndMilliseconds(long endMilliseconds) {
@@ -30,8 +41,27 @@ public class BenchmarkResult {
   @Override
   public String toString() {
     return String.format(Locale.US,
-        "BenchmarkResult\nstartMilliseconds=%d\nendMilliseconds=%d\ntotalTime=%d",
-        this.startMilliseconds, this.endMilliseconds,
-        this.endMilliseconds - this.startMilliseconds);
+        "BenchmarkResults:\n" +
+            "total time=%d ms\n" +
+            "inferences=%d\n" +
+            "batteryScale=%d\n" +
+            "initialBatteryLevel=%d\n" +
+            "finalBatteryLevel=%d\n",
+        this.endMilliseconds - this.startMilliseconds,
+        this.numberOfInferences,
+        this.batteryScale,
+        this.initialBatteryLevel,
+        this.finalBatteryLevel);
+  }
+
+  public void setBatteryLevel(int batteryLevel) {
+    if (initialBatteryLevel == -1) {
+      this.initialBatteryLevel = batteryLevel;
+    }
+    this.finalBatteryLevel = batteryLevel;
+  }
+
+  public void setBatteryScale(int batteryScale) {
+    this.batteryScale = batteryScale;
   }
 }

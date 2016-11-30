@@ -22,6 +22,7 @@ public class Benchmark {
   private String[] outputNames;
   private int[] inputShape;
   private int numberOfRuns;
+  private long runForMilliseconds;
   // Pre-allocated buffers.
 
   private float[] floatValues;
@@ -56,6 +57,7 @@ public class Benchmark {
     this.outputs = new float[config.getOutputSize()];
 
     this.numberOfRuns = config.getNumberOfRuns();
+    this.runForMilliseconds = config.getRunForMilliseconds();
 
     String modelFileName = config.getModelFileName();
     this.inferenceInterface = new TensorFlowInferenceInterface();
@@ -65,12 +67,12 @@ public class Benchmark {
   /**
    * Runs a benchmark for given configuration file.
    */
-  public BenchmarkResult benchmarkModel() {
+  public void benchmarkModel(BenchmarkResult benchmarkResult) {
     Trace.beginSection("benchmark");
-    BenchmarkResult benchmarkResult = new BenchmarkResult();
-    benchmarkResult.setStartMilliseconds(System.currentTimeMillis());
-    for (int runId = 1; runId <= this.numberOfRuns; runId += 1) {
-      Trace.beginSection("single_run");
+    benchmarkResult.initialize(runForMilliseconds);
+    System.out.println("RUN FOR MILLISECONDS: " + runForMilliseconds);
+    while (benchmarkResult.notFinished()) {
+      Trace.beginSection("singleRun");
 
       // since we're not really interested in the result of inference,
       // we're feeding dummy data, all 0's
@@ -87,12 +89,12 @@ public class Benchmark {
       // Copy the output Tensor back into the output array.
       Trace.beginSection("readNodeFloat");
       inferenceInterface.readNodeFloat(outputName, outputs);
-      Trace.endSection();
-      Trace.endSection();
+      Trace.endSection(); // readNodeFloat
+      Trace.endSection(); // single_run
+      benchmarkResult.incrementNumberOfInferences();
     }
-    benchmarkResult.setEndMilliseconds(System.currentTimeMillis());
+    benchmarkResult.finalizeBenchmark();
     Trace.endSection();
-    return benchmarkResult;
   }
 
   public void close() {
