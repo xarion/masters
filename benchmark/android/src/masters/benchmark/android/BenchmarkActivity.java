@@ -25,8 +25,7 @@ public class BenchmarkActivity extends Activity {
       handler.post(new Runnable() {
         @Override
         public void run() {
-          BenchmarkResult benchmarkResult = null;
-          benchmarkResult = benchmark.benchmarkModel();
+          BenchmarkResult benchmarkResult = benchmark.benchmarkModel();
           if (benchmarkResult != null) {
             resultTextView.setText(benchmarkResult.toString());
           } else {
@@ -38,9 +37,5 @@ public class BenchmarkActivity extends Activity {
     } catch (IOException e) {
       e.printStackTrace();
     }
-
-
   }
-
-
 }
