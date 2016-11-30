@@ -62,7 +62,7 @@ android_binary(
         "@inception5h//:model_files",
     ],
     assets_dir = "",
-    custom_package = "org.tensorflow.demo",
+    custom_package = "masters.benchmark.android",
     inline_constants = 1,
     manifest = "AndroidManifest.xml",
     resource_files = glob(["res/**"]),
