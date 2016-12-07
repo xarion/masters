@@ -94,3 +94,13 @@ data/
 summaries/
 checkpoints/
 models/
+
+benchmark/android/gradle/
+benchmark/android/gradlew
+benchmark/android/gradlew.bat
+benchmark/android/libs/
+benchmark/android/gradleBuild/
+benchmark/android/assets/*
+benchmark/android/.gradle/
+benchmark/android/android.iml
+benchmark/android/local.properties
