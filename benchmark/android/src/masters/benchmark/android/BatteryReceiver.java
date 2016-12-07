@@ -7,19 +7,19 @@ import android.os.BatteryManager;
 
 public class BatteryReceiver extends BroadcastReceiver {
 
-  BenchmarkResult benchmarkResult;
+  BenchmarkRecord benchmarkRecord;
 
-  public BatteryReceiver(BenchmarkResult benchmarkResult) {
-    this.benchmarkResult = benchmarkResult;
+  public BatteryReceiver(BenchmarkRecord benchmarkRecord) {
+    this.benchmarkRecord = benchmarkRecord;
   }
 
   @Override
   public void onReceive(Context context, Intent intent) {
     int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
-    benchmarkResult.setBatteryLevel(level);
+    benchmarkRecord.setBatteryLevel(level);
 
     int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-    benchmarkResult.setBatteryScale(scale);
+    benchmarkRecord.setBatteryScale(scale);
   }
 }
 

@@ -8,17 +8,17 @@ import android.hardware.SensorManager;
 public class BenchmarkTemperatureListener implements SensorEventListener {
   private final SensorManager sensorManager;
   private final Sensor tempSensor;
-  private BenchmarkResult benchmarkResult;
+  private BenchmarkRecord benchmarkRecord;
 
-  public BenchmarkTemperatureListener(SensorManager sensorManager, BenchmarkResult benchmarkResult) {
-    this.benchmarkResult = benchmarkResult;
+  public BenchmarkTemperatureListener(SensorManager sensorManager, BenchmarkRecord benchmarkRecord) {
+    this.benchmarkRecord = benchmarkRecord;
     this.sensorManager = sensorManager;
     tempSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
   }
 
   @Override
   public void onSensorChanged(SensorEvent event) {
-    benchmarkResult.setTemperature(event.values[0]);
+    benchmarkRecord.setTemperature(event.values[0]);
   }
 
   @Override

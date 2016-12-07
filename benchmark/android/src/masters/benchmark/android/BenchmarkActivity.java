@@ -13,10 +13,10 @@ import java.io.IOException;
 public class BenchmarkActivity extends Activity {
 
   BatteryReceiver batteryReceiver;
-  BenchmarkResult benchmarkResult;
+  BenchmarkRecord benchmarkRecord;
 
   private void registerBatteryReceiver() {
-    this.batteryReceiver = new BatteryReceiver(benchmarkResult);
+    this.batteryReceiver = new BatteryReceiver(benchmarkRecord);
     this.registerReceiver(this.batteryReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
   }
 
@@ -32,7 +32,7 @@ public class BenchmarkActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    benchmarkResult = new BenchmarkResult();
+    benchmarkRecord = new BenchmarkRecord();
     registerBatteryReceiver();
     setContentView(R.layout.activity_benchmark);
     final TextView resultTextView = (TextView) findViewById(R.id.resultTextView);
@@ -46,11 +46,11 @@ public class BenchmarkActivity extends Activity {
       handler.post(new Runnable() {
         @Override
         public void run() {
-          benchmark.benchmarkModel(benchmarkResult);
+          benchmark.benchmarkModel(benchmarkRecord);
           runOnUiThread(new Runnable() {
             @Override
             public void run() {
-              resultTextView.setText(benchmarkResult.toString());
+              resultTextView.setText(benchmarkRecord.toString());
             }
           });
         }

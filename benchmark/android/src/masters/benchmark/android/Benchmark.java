@@ -67,11 +67,11 @@ public class Benchmark {
   /**
    * Runs a benchmark for given configuration file.
    */
-  public void benchmarkModel(BenchmarkResult benchmarkResult) {
+  public void benchmarkModel(BenchmarkRecord benchmarkRecord) {
     Trace.beginSection("benchmark");
-    benchmarkResult.initialize(runForMilliseconds);
+    benchmarkRecord.initialize(runForMilliseconds);
     System.out.println("RUN FOR MILLISECONDS: " + runForMilliseconds);
-    while (benchmarkResult.notFinished()) {
+    while (benchmarkRecord.notFinished()) {
       Trace.beginSection("singleRun");
 
       // since we're not really interested in the result of inference,
@@ -91,9 +91,9 @@ public class Benchmark {
       inferenceInterface.readNodeFloat(outputName, outputs);
       Trace.endSection(); // readNodeFloat
       Trace.endSection(); // single_run
-      benchmarkResult.incrementNumberOfInferences();
+      benchmarkRecord.incrementNumberOfInferences();
     }
-    benchmarkResult.finalizeBenchmark();
+    benchmarkRecord.finalizeBenchmark();
     Trace.endSection();
   }
 

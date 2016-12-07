@@ -3,7 +3,7 @@ package masters.benchmark.android;
 
 import java.util.Locale;
 
-public class BenchmarkResult {
+public class BenchmarkRecord {
 
   private long startMilliseconds;
   private long endMilliseconds;
