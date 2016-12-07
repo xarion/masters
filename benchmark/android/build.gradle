@@ -52,27 +52,27 @@ android {
     }
 }
 
-task buildNative(type:Exec) {
-    workingDir '../../../../'
-    commandLine bazel_location, 'build', '-c', 'opt', '--copt=-g0', '--strip=always',\
-      'tensorflow/masters/benchmark/android:tensorflow_native_libs', \
-       '--crosstool_top=//external:android/crosstool', \
-       '--cpu=' + cpuType, \
-       '--host_crosstool_top=@bazel_tools//tools/cpp:toolchain'
-}
+//task buildNative(type:Exec) {
+//    workingDir '../../../../'
+//    commandLine bazel_location, 'build', //'-c', 'opt', '--copt=-g0', '--strip=always',\
+//      'tensorflow/masters/benchmark/android:tensorflow_native_libs', \
+//       '--crosstool_top=//external:android/crosstool', \
+//       '--cpu=' + cpuType, \
+//       '--host_crosstool_top=@bazel_tools//tools/cpp:toolchain'
+//}
 
-task copyNativeLibs(type: Copy) {
-    from('../../../../bazel-bin/tensorflow/masters/benchmark/android/_dx/tensorflow_demo/native_symlinks/'+cpuType) { include '**/*.so' }
-    into nativeDir
-    duplicatesStrategy = 'include'
-}
+//task copyNativeLibs(type: Copy) {
+//    from('../../../../bazel-bin/tensorflow/masters/benchmark/android') { include '**/*.so' }
+//    into nativeDir
+//    duplicatesStrategy = 'include'
+//}
 
-tasks.whenTaskAdded { task ->
-    if (task.name == 'copyNativeLibs') {
-        task.dependsOn 'buildNative'
-    } else if (task.name == 'assemble') {
-        task.dependsOn 'copyNativeLibs'
-    } else if (task.name == 'assembleDebug') {
-        task.dependsOn 'copyNativeLibs'
-    }
-}
+//tasks.whenTaskAdded { task ->
+//    if (task.name == 'copyNativeLibs') {
+//        task.dependsOn 'buildNative'
+//    } else if (task.name == 'assemble') {
+//        task.dependsOn 'copyNativeLibs'
+//    } else if (task.name == 'assembleDebug') {
+//        task.dependsOn 'copyNativeLibs'
+//    }
+//}
