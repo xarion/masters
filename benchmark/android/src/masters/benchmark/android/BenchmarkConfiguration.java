@@ -13,7 +13,7 @@ public class BenchmarkConfiguration {
   private int[] outputShape;
   private String modelFileName;
   private int numberOfRuns;
-  private long runForMilliseconds;
+  private long durationMilliseconds;
 
   public BenchmarkConfiguration(AssetManager assetManager) throws IOException {
     InputStream propertiesFile = assetManager.open("benchmark.properties");
@@ -27,7 +27,7 @@ public class BenchmarkConfiguration {
     this.outputName = properties.getProperty("output_name");
     this.modelFileName = properties.getProperty("model_graph_file");
     this.numberOfRuns = Integer.valueOf(properties.getProperty("number_of_runs"));
-    this.runForMilliseconds = Integer.valueOf(properties.getProperty("run_for_milliseconds"));
+    this.durationMilliseconds = Integer.valueOf(properties.getProperty("duration_milliseconds"));
     String inputShapeString = properties.getProperty("input_shape");
     this.inputShape = parseShape(inputShapeString);
     String outputShapeString = properties.getProperty("output_shape");
@@ -84,7 +84,7 @@ public class BenchmarkConfiguration {
     return shapeToSize(this.inputShape);
   }
 
-  public long getRunForMilliseconds() {
-    return runForMilliseconds;
+  public long getDurationMilliseconds() {
+    return durationMilliseconds;
   }
 }

@@ -57,7 +57,7 @@ public class Benchmark {
     this.outputs = new float[config.getOutputSize()];
 
     this.numberOfRuns = config.getNumberOfRuns();
-    this.runForMilliseconds = config.getRunForMilliseconds();
+    this.runForMilliseconds = config.getDurationMilliseconds();
 
     String modelFileName = config.getModelFileName();
     this.inferenceInterface = new TensorFlowInferenceInterface();
