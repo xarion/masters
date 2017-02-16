@@ -16,6 +16,5 @@
 -->
 
 <resources>
-    <string name="app_name">TensorFlow Demo</string>
-    <string name="activity_name_classification">TF Classification</string>
+    <string name="app_name">Model Benchmark</string>
 </resources>
