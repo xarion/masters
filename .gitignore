@@ -104,3 +104,10 @@ benchmark/android/assets/*
 benchmark/android/.gradle/
 benchmark/android/android.iml
 benchmark/android/local.properties
+
+docs/*/*/*.aux
+docs/*/*/*.bbl
+docs/*/*/*.blg
+docs/*/*/*.out
+docs/*/*/*.gz
+MNIST_data
