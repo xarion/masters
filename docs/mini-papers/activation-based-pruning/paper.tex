@@ -1,0 +1,29 @@
+\documentclass[a4paper,man,natbib]{apa6}
+
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{hyperref}
+
+\title{Optimizing Neural Networks for Mobile Devices}
+\shorttitle{Activation Based Pruning}
+\author{Erdi \c{C}all{\i}}
+\affiliation{Radboud University Nijmegen, Neurant}
+
+\abstract{Studies show that pruning unnecessary neurons in an ANN is effective in reducing the model complexity. Activation based pruning, sums up the neuron activation counts. Using that information, it determines the useless neurons, and deletes them. In theory, this method reduces the training time per cycle, and prioritizes important connections. We set up an experiment to see the efficiency of this method. We defined a problem with a simple optimal solution, summation of two inputs. We defined a network with redundant parameters and trained it in different configurations. Our experiments show that this method is working to its expectations. \todo[inline]{We can talk about how it is important in the nature, check \cite{rust121997activity}}}
+
+\begin{document}
+\maketitle
+\section{Introduction}
+
+ANN's have several parameters such as number of hidden layers, number of neurons in a layer, or the structure of a layer. Until now, we have seen different combinations for these parameters. For example, \cite{Simonyan:2014aa} introduces a model called VGGNet. VGGNet introduces more layers (16 to 19) than the previous models. They show how this parameter effects the accuracy. \cite{He:2015aa} introduces the residual connections. This new connection between layers is capable of stacking more layers than before. Training up to 152 layers, they show superior accuracy. \cite{Zagoruyko:2016aa} compares having higher number of neurons in each layer to having more layers. Each combination resulting in a unique model with a different accuracy level. In contrast to all these, \cite{Szegedy:2014aa} suggests something different. Having a good harmony within the network works better than having more parameters. Supporting that, \cite{Canziani:2016aa} does a detailed comparison of different models. Their findings show that increasing the number of hidden layers or the number of neurons in a layer does not necessarily increase the accuracy. 
+
+Following these, % Talk about pruning that reduces the number of parameters without reducing the accuracy.
+
+% Ask the research question.
+
+\bibliography{../BibLibrary}
+
+\end{document}
