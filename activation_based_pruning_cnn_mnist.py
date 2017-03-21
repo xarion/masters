@@ -11,10 +11,8 @@ Links:
 """
 from __future__ import division, print_function, absolute_import
 
-import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-
+import tensorflow as tf
 # Import MNIST data
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -22,7 +20,7 @@ mnist = input_data.read_data_sets("MNIST_data", one_hot=True)
 
 # Parameters
 learning_rate = 0.01
-training_epochs = 20
+training_epochs = 3
 batch_size = 256
 display_step = 1
 examples_to_show = 10
@@ -33,7 +31,7 @@ n_hidden_2 = 256  # 2nd layer num features
 n_input = 1  # MNIST data input (img shape: 28*28) # now it's 1 because conv2d
 filter_size = 3
 # tf Graph input (only pictures)
-X = tf.placeholder("float", [batch_size, 28, 28, 1])
+X = tf.placeholder("float", [batch_size, 784])
 
 weights = {
     'encoder_h1': tf.Variable(tf.random_normal([filter_size, filter_size, n_input, n_hidden_1])),
@@ -51,32 +49,36 @@ biases = {
 
 # Building the encoder
 def encoder(x):
-    with tf.name_scope("encoder"):
+    x = tf.reshape(x, [batch_size, 28, 28, 1])
+    with tf.name_scope("encoder_1"):
         # Encoder Hidden layer with sigmoid activation #1
         # Output: [?, 14, 14, 128]
         encoder_1 = tf.nn.relu(tf.add(tf.nn.conv2d(x, weights['encoder_h1'], strides=[1, 2, 2, 1], padding="SAME"),
-                                    biases['encoder_b1']))
+                                      biases['encoder_b1']))
 
+    with tf.name_scope("encoder_1"):
         # Decoder Hidden layer with sigmoid activation #2
         # Output: [?, 7, 7, 256]
-        encoder_2 = tf.nn.relu(tf.add(tf.nn.conv2d(encoder_1, weights['encoder_h2'], strides=[1, 2, 2, 1], padding="SAME"),
-                                biases['encoder_b2']))
+        encoder_2 = tf.nn.relu(
+            tf.add(tf.nn.conv2d(encoder_1, weights['encoder_h2'], strides=[1, 2, 2, 1], padding="SAME"),
+                   biases['encoder_b2']))
     return encoder_2
 
 
 # Building the decoder
 def decoder(x):
-    with tf.name_scope("decoder"):
+    with tf.name_scope("decoder_1"):
         # Encoder Hidden layer with sigmoid activation #1
         #  Output: [?, 14, 14, 128]
         decoder_1 = tf.nn.relu(tf.add(tf.nn.conv2d_transpose(x, weights['decoder_h1'],
-                                                           output_shape=[batch_size, 14, 14, n_hidden_1],
-                                                           strides=[1, 1, 1, 1]), biases['decoder_b1']))
+                                                             output_shape=[batch_size, 14, 14, n_hidden_1],
+                                                             strides=[1, 2, 2, 1]), biases['decoder_b1']))
+    with tf.name_scope("decoder_2"):
         # Decoder Hidden layer with sigmoid activation #2
         # Output: [?, 28, 28, 1]
         output = tf.add(tf.nn.conv2d_transpose(decoder_1, weights['decoder_h2'],
-                                                output_shape=[batch_size, 28, 28, n_input],
-                                                strides=[1, 1, 1, 1]), biases['decoder_b2'])
+                                               output_shape=[batch_size, 28, 28, n_input],
+                                               strides=[1, 2, 2, 1]), biases['decoder_b2'])
     return output
 
 
@@ -85,7 +87,7 @@ encoder_op = encoder(X)
 decoder_op = decoder(encoder_op)
 
 # Prediction
-y_pred = decoder_op
+y_pred = tf.reshape(decoder_op, [batch_size, 784])
 # Targets (Labels) are the input data.
 y_true = X
 
@@ -116,8 +118,11 @@ with tf.Session() as sess:
 
     # Applying encode and decode over test set
     encode_decode = sess.run(
-        y_pred, feed_dict={X: tf.reshape(mnist.test.images[:examples_to_show], [None, 28, 28, 1])})
+        y_pred, feed_dict={X: mnist.test.images[:batch_size]})
     # Compare original images with their reconstructions
+
+    import matplotlib.pyplot as plt
+
     f, a = plt.subplots(2, 10, figsize=(10, 2))
     for i in range(examples_to_show):
         a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))
