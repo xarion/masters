@@ -13,10 +13,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
+# set the seed to get stable results!
+tf.set_random_seed(124)
+
 mnist = input_data.read_data_sets("MNIST_data", one_hot=True)
 
 LEARNING_RATE = 0.01
-EPOCHS = 1
+EPOCHS = 2
 BATCH_SIZE = 32
 DISPLAY_STEP = 5
 EXAMPLES_TO_SHOW = 10
