@@ -43,7 +43,7 @@ def batch_normalization(input_layer, parameters):
 
 
 def distort(values):
-    values += (np.random.random(values.shape) * (np.mean(values) * np.square(1 - np.var(values)))).astype(np.float32)
+    values += (np.random.random(values.shape) * LEARNING_RATE).astype(np.float32)
     return values
 
 
