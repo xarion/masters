@@ -113,8 +113,10 @@ while pruned_node_count is None or pruned_node_count > 0:
 
 
     def l1_regularization():
-        return reduce(lambda k, l: tf.reduce_sum(tf.abs(k)) + tf.reduce_sum(tf.abs(l)), weights.values()) + \
-               reduce(lambda k, l: tf.reduce_sum(tf.abs(k)) + tf.reduce_sum(tf.abs(l)), biases.values())
+        variables = list()
+        variables.extend(biases.values())
+        variables.extend(weights.values())
+        return reduce(lambda k, l: k + l, map(lambda m: tf.reduce_sum(tf.abs(m)), variables))
 
 
     with tf.name_scope("encoder_1"):
