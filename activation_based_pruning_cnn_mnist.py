@@ -111,14 +111,6 @@ while pruned_node_count is None or pruned_node_count > 0:
             batch_normalization_params[key] = [tf.Variable(val, tf.float32) for val in
                                                updated_batch_normalization_params[key]]
 
-
-    def l1_regularization():
-        variables = list()
-        variables.extend(biases.values())
-        variables.extend(weights.values())
-        return reduce(lambda k, l: k + l, map(lambda m: tf.reduce_sum(tf.abs(m)), variables))
-
-
     with tf.name_scope("encoder_1"):
         encoder_1 = tf.add(tf.nn.conv2d(x_reshaped, weights['encoder_1'], strides=[1, 2, 2, 1], padding="SAME"),
                            biases['encoder_1'])
@@ -144,10 +136,26 @@ while pruned_node_count is None or pruned_node_count > 0:
         output = batch_normalization(decoder_2, batch_normalization_params["decoder_2"])
 
     with tf.name_scope("loss"):
+        def l1_regularization():
+            variables = list()
+            variables.extend(biases.values())
+            variables.extend(weights.values())
+            return reduce(lambda k, l: k + l, map(lambda m: tf.reduce_sum(tf.abs(m)), variables))
+
+
+        def activation_count_regularization():
+            return reduce(lambda k, l: k + l,
+                          map(lambda m:
+                              tf.reduce_sum(tf.cast(m > 0, tf.float32)),
+                              [encoder_1, encoder_2, decoder_1]))
+
+
         y_pred = tf.reshape(output, [BATCH_SIZE, 784])
         y_true = X
+        # RMS + regularizers to encourage pruning
+        cost = tf.reduce_mean(tf.pow((y_true - y_pred), 2)) + \
+               0.000001 * (l1_regularization() + 0.001 * activation_count_regularization())
 
-        cost = tf.reduce_mean(tf.pow((y_true - y_pred), 2)) + 0.000001 * l1_regularization()
 
     with tf.name_scope("optimizer"):
         optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(cost)
