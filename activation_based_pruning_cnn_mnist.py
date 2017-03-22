@@ -56,7 +56,8 @@ epochs = EPOCHS
 cycles = 0
 learning_rate = LEARNING_RATE
 
-while True:
+pruned_node_count = None
+while pruned_node_count is None or pruned_node_count > 0:
     X = tf.placeholder("float", [BATCH_SIZE, 784])
     x_reshaped = tf.reshape(X, [BATCH_SIZE, 28, 28, 1])
     if weights_not_initialized:
