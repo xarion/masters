@@ -9,12 +9,16 @@ Links:
 """
 from __future__ import division, print_function, absolute_import
 
+from datetime import datetime
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import matplotlib.pyplot as plt
 
 # set the seed to get stable results!
 tf.set_random_seed(124)
+np.random.seed(124)
 
 mnist = input_data.read_data_sets("MNIST_data", one_hot=True)
 
@@ -34,6 +38,11 @@ KERNEL_SIZE = 3
 node_count_layer_1 = NODE_COUNT_LAYER_1
 node_count_layer_2 = NODE_COUNT_LAYER_2
 node_count_layer_3 = NODE_COUNT_LAYER_3
+
+node_count_histories = [[node_count_layer_1], [node_count_layer_2], [node_count_layer_3]]
+training_steps = 0
+validation_loss_history = []
+step_durations = []
 
 
 def batch_normalization(input_layer, parameters):
@@ -156,12 +165,12 @@ while pruned_node_count is None or pruned_node_count > 0:
         y_pred = tf.reshape(output, [BATCH_SIZE, 784])
         y_true = X
         # RMS + regularizers to encourage pruning
-        cost = tf.reduce_mean(tf.pow((y_true - y_pred), 2)) + \
-               0.000001 * (l1_regularization() + 0.001 * activation_count_regularization())
-
+        cost = tf.reduce_mean(tf.pow((y_true - y_pred), 2))
+        cost_regularizers = 0.000001 * (l1_regularization() + 0.001 * activation_count_regularization())
+        regularized_cost = cost + cost_regularizers
 
     with tf.name_scope("optimizer"):
-        optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(cost)
+        optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(regularized_cost)
 
     init = tf.global_variables_initializer()
 
@@ -169,15 +178,31 @@ while pruned_node_count is None or pruned_node_count > 0:
         sess.run(init)
 
         total_batch = int(mnist.train.num_examples / BATCH_SIZE)
+        training_start_time = datetime.now()
         for epoch in range(epochs):
             for i in range(total_batch):
                 batch_xs, batch_ys = mnist.train.next_batch(BATCH_SIZE)
-                _, c = sess.run([optimizer, cost], feed_dict={X: batch_xs})
-                print("cost=", "{:.9f}".format(c), "batch=%d/%d" % (i, total_batch))
+                _, c = sess.run([optimizer, regularized_cost], feed_dict={X: batch_xs})
+                # print("cost=", "{:.9f}".format(c), "batch=%d/%d" % (i, total_batch))
             if epoch % DISPLAY_STEP == 0:
                 print("Epoch:", '%04d' % (epoch + 1),
                       "cost=", "{:.9f}".format(c))
 
+        training_end_time = datetime.now()
+        duration = (training_end_time - training_start_time).seconds
+        step_durations.append(duration)
+        print(step_durations)
+        # Validation
+        validation_cost = 0
+        int(mnist.validation.num_examples / BATCH_SIZE)
+        for i in range(total_batch):
+            batch_xs, _ = mnist.validation.next_batch(BATCH_SIZE)
+            batch_cost, = sess.run([cost], feed_dict={X: batch_xs})
+            batch_cost *= (len(batch_xs) / mnist.validation.num_examples)
+            validation_cost += batch_cost
+
+        validation_loss_history.append(validation_cost)
+        print(validation_loss_history)
         print("Training epocs finished, counting activations")
 
         ###
@@ -235,6 +260,11 @@ while pruned_node_count is None or pruned_node_count > 0:
         node_count_layer_2 -= np.sum(encoder_2_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
         pruned_node_count += np.sum(decoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
         node_count_layer_3 -= np.sum(decoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
+
+        node_count_histories[0].append(node_count_layer_1)
+        node_count_histories[1].append(node_count_layer_2)
+        node_count_histories[2].append(node_count_layer_3)
+        print(node_count_histories)
         print("Total number of pruned nodes: %d" % (pruned_node_count))
 
         pruned_weights_encoder_1 = distort(pruned_weights_encoder_1)
@@ -263,16 +293,49 @@ while pruned_node_count is None or pruned_node_count > 0:
                           tf.Variable(0, dtype=tf.float32), tf.Variable(1, dtype=tf.float32),
                           tf.Variable(1e-5, dtype=tf.float32)],
         }
+
         if pruned_node_count == 0:
+            # Test
+            test_cost = .0
+            int(mnist.test.num_examples / BATCH_SIZE)
+            for i in range(total_batch):
+                batch_xs, _ = mnist.test.next_batch(BATCH_SIZE)
+                batch_cost, = sess.run([cost], feed_dict={X: batch_xs})
+                batch_cost *= (len(batch_xs) / mnist.test.num_examples)
+                test_cost += batch_cost
+
+            print("final cost in the test dataset: %.9f" % test_cost)
             encode_decode = sess.run(
                 y_pred, feed_dict={X: mnist.test.images[:BATCH_SIZE]})
 
-            import matplotlib.pyplot as plt
-
+            plt.figure()
             f, a = plt.subplots(2, 10, figsize=(10, 2))
             for i in range(EXAMPLES_TO_SHOW):
                 a[0][i].imshow(np.reshape(mnist.test.images[i], (28, 28)))
                 a[1][i].imshow(np.reshape(encode_decode[i], (28, 28)))
             f.show()
             plt.draw()
-            plt.waitforbuttonpress()
+
+plt.figure()
+num_cycles = len(node_count_histories[0])
+layer_1, = plt.plot(range(0, num_cycles), node_count_histories[0], label='Layer 1')
+layer_2, = plt.plot(range(0, num_cycles), node_count_histories[1], label='Layer 2')
+layer_3, = plt.plot(range(0, num_cycles), node_count_histories[2], label='Layer 3')
+plt.legend(handles=[layer_1, layer_2, layer_3])
+plt.title('Number of features per layer over time')
+plt.xlabel('Training Cycle')
+plt.ylabel('Remaining Features')
+
+plt.figure()
+plt.plot(range(0, num_cycles), validation_loss_history)
+plt.title('Validation Loss over Cycles')
+plt.xlabel('Training Cycle')
+plt.ylabel('Loss')
+
+plt.figure()
+plt.plot(range(0, num_cycles), step_durations)
+plt.title('Duration of Training Cycles over time')
+plt.xlabel('Training Cycle')
+plt.ylabel('Seconds')
+
+
