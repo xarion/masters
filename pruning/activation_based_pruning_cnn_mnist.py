@@ -60,7 +60,12 @@ def distort(values):
 
 
 def prune(weights, activation_counts, prune_axis):
-    return np.compress(activation_counts > PRUNING_ACTIVATION_THRESHOLD, weights, prune_axis)
+    while np.mean(activation_counts) - 2 * np.std(activation_counts) < 0:
+        minimum = np.min(activation_counts)
+        weights = np.compress(activation_counts > minimum, weights, prune_axis)
+        activation_counts = np.compress(activation_counts > minimum, activation_counts)
+    activation_threshold = np.mean(activation_counts) - 2 * np.std(activation_counts)
+    return np.compress(activation_counts > activation_threshold, weights, prune_axis)
 
 
 weights_not_initialized = True
@@ -254,12 +259,16 @@ while pruned_node_count is None or pruned_node_count > 0:
             str(weights_decoder_2.shape), str(pruned_weights_decoder_2.shape)))
 
         pruned_node_count = 0
-        pruned_node_count += np.sum(encoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
-        node_count_layer_1 -= np.sum(encoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
-        pruned_node_count += np.sum(encoder_2_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
-        node_count_layer_2 -= np.sum(encoder_2_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
-        pruned_node_count += np.sum(decoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
-        node_count_layer_3 -= np.sum(decoder_1_activation_counts <= PRUNING_ACTIVATION_THRESHOLD)
+
+        pruned_node_count += node_count_layer_1 - pruned_weights_encoder_1.shape[3]
+        node_count_layer_1 = pruned_weights_encoder_1.shape[3]
+
+        pruned_node_count += node_count_layer_2 - pruned_weights_encoder_2.shape[3]
+        node_count_layer_2 = pruned_weights_encoder_2.shape[3]
+
+        pruned_node_count += node_count_layer_3 - pruned_weights_decoder_1.shape[2]
+        node_count_layer_3 = pruned_weights_decoder_1.shape[2]
+
 
         node_count_histories[0].append(node_count_layer_1)
         node_count_histories[1].append(node_count_layer_2)
@@ -327,15 +336,15 @@ plt.xlabel('Training Cycle')
 plt.ylabel('Remaining Features')
 
 plt.figure()
-plt.plot(range(0, num_cycles), validation_loss_history)
+plt.plot(range(1, num_cycles), validation_loss_history)
 plt.title('Validation Loss over Cycles')
 plt.xlabel('Training Cycle')
 plt.ylabel('Loss')
 
 plt.figure()
-plt.plot(range(0, num_cycles), step_durations)
+plt.plot(range(1, num_cycles), step_durations)
 plt.title('Duration of Training Cycles over time')
 plt.xlabel('Training Cycle')
 plt.ylabel('Seconds')
-
+plt.show()
 
