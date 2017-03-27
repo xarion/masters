@@ -1,0 +1,24 @@
+% !TEX root = ../thesis.tex
+\section{Dependencies}
+\subsection{Tensorflow}
+In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todo[inline]{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
+
+\section{Pruning}
+Pruning aims to reduce the number of operations by deleting the parameters that has low or no impact in the result. Studies show that applying this method in an ANN is effective in reducing the model complexity, improving generalization, and they are effective in reducing the required training cycles. In our experiments we will try to reproduce these effects.
+To visualize these methods, let's think of two fully connected layers, $\mathbf{l_1}$ and $\mathbf{l_2}$. $\mathbf{l_1}$ is the input of this operation and it consists of $N$ values, $\mathbf{l_1}=(l_{11}, l_{12}, ..., l_{1N})$. $\mathbf{l_2}$ is the output of this operation consists of $M$ values, $\mathbf{l_2}=(l_{21}, l_{22}, ..., l_{2M})$. Between these two layers, there is a weight matrix $W$ with size $N \times M$. The operation, that we want to optimize is, $\mathbf{l_2} = \mathbf{l_1}W$.
+\todo[inline]{maybe explain in more detail and give examples of pruning algorithms here. (e.g. Optimal Brain Damage, Second order derivatives for network pruning: Optimal Brain Surgeon, Optimal Brain Surgeon and general network pruning, SEE Pruning Algorithms-a survey from R. Reed)}
+
+\subsection{Pruning Individual Weights}
+With this subcategory of pruning algorithms we want to optimize the number of floating point operations by removing some values from $W$. Theoretically, it makes sense to remove individual scalars from W, and exclude operations related to them. This would ideally reduce the required number of floating point operations. But in our library of our choice, Tensorflow, matrix multiplication implementation \texttt{tf.matmul} do not consider such a change. It takes two fixed size matrices, and does the computations using all of their values. Tensorflow also has another matrix multiplication operation, \texttt{tf.sparse\_tensor\_dense\_matmul}. This operation takes a sparse matrix and a dense matrix as inputs and outputs a dense matrix. To implement this method, we could convert W to a sparse tensor after pruning the weights. But, Tensorflow documentations about this method state;
+\begin{itemize}
+\item Will the SparseTensor A fit in memory if densified?
+\item Is the column count of the product large ($>> 1$)?
+\item Is the density of A larger than approximately $15\%$?
+\end{itemize}
+"If the answer to several of these questions is yes, consider converting the SparseTensor to a dense one.". In our terms, SparseTensor A is corresponding to the pruned version of $W$. 
+
+Since $W$ was already dense before, we can assume that the answer to the first question is yes. The column count of our product is $M$ which is much larger than $1$ in some cases. Also we don't know anything about the density of pruned version of $W$. Looking at these facts, we are assuming that implementing this operation will be problematic. Instead of delving deeper into these problems to evaluate this method, we will move on to other methods.
+
+\subsection{Activation Based Pruning}
+Activation based pruning, works by looking at individual values in layers, and prunes the layer and corresponding weight row/columns completely. To visualize this, we will assume that the fully connected layers we have defined are, trained to some extent, and activated using ReLU activations. With this definition, if we apply our dataset and count the number of activations in $\mathbf{l_1}$ and $\mathbf{l_2}$, we may realize that there are some neurons that are not being activated at all. By removing these neurons from the layers, we can reduce the number of operations to some extent. This removal operation is done by removing the non-activated neurons from $\mathbf{l_1}$ and $\mathbf{l_2}$, followed by removing corresponding columns and rows from $W$.
+
