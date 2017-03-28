@@ -11,10 +11,10 @@ from __future__ import division, print_function, absolute_import
 
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-import matplotlib.pyplot as plt
 
 # set the seed to get stable results!
 tf.set_random_seed(124)
@@ -269,7 +269,6 @@ while pruned_node_count is None or pruned_node_count > 0:
         pruned_node_count += node_count_layer_3 - pruned_weights_decoder_1.shape[2]
         node_count_layer_3 = pruned_weights_decoder_1.shape[2]
 
-
         node_count_histories[0].append(node_count_layer_1)
         node_count_histories[1].append(node_count_layer_2)
         node_count_histories[2].append(node_count_layer_3)
@@ -347,4 +346,3 @@ plt.title('Duration of Training Cycles over time')
 plt.xlabel('Training Cycle')
 plt.ylabel('Seconds')
 plt.show()
-
