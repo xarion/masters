@@ -111,4 +111,9 @@ benchmark/android/local.properties
 *.blg
 *.out
 *.gz
+*.tui
+*.top
+*.toc
+*.mp
+
 MNIST_data

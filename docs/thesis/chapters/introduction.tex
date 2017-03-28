@@ -1,0 +1,43 @@
+% !TEX root = ../thesis.tex
+\iffalse
+Introduction
+You can't write a good introduction until you know what the body of the paper says. Consider writing the introductory section(s) after you have completed the rest of the paper, rather than before.
+
+Be sure to include a hook at the beginning of the introduction. This is a statement of something sufficiently interesting to motivate your reader to read the rest of the paper, it is an important/interesting scientific problem that your paper either solves or addresses. You should draw the reader in and make them want to read the rest of the paper.
+
+The next paragraphs in the introduction should cite previous research in this area. It should cite those who had the idea or ideas first, and should also cite those who have done the most recent and relevant work. You should then go on to explain why more work was necessary (your work, of course.)
+ 
+What else belongs in the introductory section(s) of your paper? 
+
+    A statement of the goal of the paper: why the study was undertaken, or why the paper was written. Do not repeat the abstract. 
+    Sufficient background information to allow the reader to understand the context and significance of the question you are trying to address. 
+    Proper acknowledgement of the previous work on which you are building. Sufficient references such that a reader could, by going to the library, achieve a sophisticated understanding of the context and significance of the question.
+    The introduction should be focused on the thesis question(s).  All cited work should be directly relevent to the goals of the thesis.  This is not a place to summarize everything you have ever read on a subject.
+    Explain the scope of your work, what will and will not be included. 
+    A verbal "road map" or verbal "table of contents" guiding the reader to what lies ahead. 
+    Is it obvious where introductory material ("old stuff") ends and your contribution ("new stuff") begins? 
+
+Remember that this is not a review paper. We are looking for original work and interpretation/analysis by you. Break up the introduction section into logical segments by using subheads. 
+\fi
+Recent state of the art Deep Learning models are surpassing previous methods. Fields such as; computer vision, automatic speech recognition, natural language processing, speech recognition, and bioinformatics make use of these models. They use deep models consisting of many layers (e.g. 152 layers in  \cite{He:2015aa}), many parameters in each layer, and as a result, a lot of Floating Point Operations to run Inference (e.g. $11.3 \times 10^9$ in  \cite{He:2015aa}).
+In contrast, mobile devices have limited processing power and memory. Also the best practice is to provide a fluent user experience with low response time. Thus, we should change these models to provide a good user experience.
+There is research on methods to define optimized models or optimize a given model. These methods consist; pruning unimportant parameters, using less bits to represent parameters, or using less parameters by using more optimized structures. 
+
+In this research we are going run experiments to answer;
+\begin{enumerate}
+\item    Which models are running slow in Mobile Devices?
+\item    Why these models are running slow?
+\item    Which methods can we use to optimize these models?
+\item    What is the trade off of using these methods?
+\item    Why an optimization technique is working or not on a model?
+\item    Can we define a more optimized model for the same task?
+\item    How can we combine different optimization techniques?
+\item    Are these optimized models efficient enough to run in Mobile Devices? 
+\end{enumerate}
+
+\section{Recent Studies}
+Artificial Neural Networks (ANN) have several parameters such as number of hidden layers, number of neurons in a layer, or the structure of a layer. Until now, we have seen different combinations for these parameters. For example, \cite{Simonyan:2014aa} introduces a model called VGGNet. VGGNet introduces more layers (16 to 19) than the previous models. They show how this parameter effects the accuracy. \cite{He:2015aa} introduces the residual connections. This new connection between layers is capable of stacking more layers than before. Training up to 152 layers, they show superior accuracy. \cite{Zagoruyko:2016aa} compares having higher number of neurons in each layer to having more layers. Each combination resulting in a unique model with a different accuracy level. In contrast to all these, \cite{Szegedy:2014aa} suggests something different. Having a good harmony within the network works better than having more parameters. Supporting that, \cite{Canziani:2016aa} does a detailed comparison of different models. They show that, increasing the number of hidden layers or the number of neurons in a layer does not necessarily increase the accuracy. 
+
+Following these, we think that, some models are over-parameterized. Meaning they contain parameters that they are not making use of. Therefore, they are making unnecessary computations with them.
+
+

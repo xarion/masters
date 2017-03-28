@@ -1,0 +1,15 @@
+import matplotlib.pyplot as plt
+
+plt.figure()
+plt.title('Number of features per layer over time')
+plt.xlabel('Training Cycle')
+plt.ylabel('Remaining Features')
+l1, = plt.plot([0, 1, 2, 3, 4], [5, 3, 1, 0.1, 0.1], label='first line')
+l2, = plt.plot([0, 1, 2, 3, 4], [4, 4, 2, 0.1, 0.1], label='second line')
+plt.legend(handles=[l1, l2])
+plt.figure()
+plt.title('Validation Loss over Cycles')
+plt.xlabel('Training Cycle')
+plt.ylabel('Remaining Features')
+plt.plot([0, 1, 2, 3, 4], [2, 2, 2, 0.1, 0.1])
+plt.show()

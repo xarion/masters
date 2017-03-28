@@ -1,0 +1,45 @@
+% !TEX root = ../thesis.tex
+\iffalse
+Taken from http://www.ldeo.columbia.edu/~martins/sen_sem/thesis_org.html
+Methods
+What belongs in the "methods" section of a scientific paper?
+    Information to allow the reader to assess the believability of your results.
+    Information needed by another researcher to replicate your experiment.
+    Description of your materials, procedure, theory.
+    Calculations, technique, procedure, equipment, and calibration plots. 
+    Limitations, assumptions, and range of validity.
+    Desciption of your analystical methods, including reference to any specialized statistical software. 
+The methods section should answering the following questions and caveats: 
+    Could one accurately replicate the study (for example, all of the optional and adjustable parameters on any sensors or instruments that were used to acquire the data)?
+    Could another researcher accurately find and reoccupy the sampling stations or track lines?
+    Is there enough information provided about any instruments used so that a functionally equivalent instrument could be used to repeat the experiment?
+    If the data are in the public domain, could another researcher lay his or her hands on the identical data set?
+    Could one replicate any laboratory analyses that were used? 
+    Could one replicate any statistical analyses?
+    Could another researcher approximately replicate the key algorithms of any computer software?
+Citations in this section should be limited to data sources and references of where to find more complete descriptions of procedures.
+Do not include descriptions of results. 
+\fi
+\section{Dependencies}
+\subsection{Tensorflow}
+In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todo[inline]{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
+\todo[inline]{things to be explained: FC layer, Convolution Operation, what do we mean when we say neuron/node, activation, bias, training dataset}
+\section{Pruning}
+Pruning aims to reduce the number of operations by deleting the parameters that has low or no impact in the result. Studies show that applying this method in an ANN is effective in reducing the model complexity, improving generalization, and they are effective in reducing the required training cycles. In our experiments we will try to reproduce these effects.
+To visualize these methods, let's think of two fully connected layers, $\mathbf{l_1}$ and $\mathbf{l_2}$. $\mathbf{l_1}$ is the input of this operation and it consists of $N$ values, $\mathbf{l_1}=(l_{11}, l_{12}, ..., l_{1N})$. $\mathbf{l_2}$ is the output of this operation consists of $M$ values, $\mathbf{l_2}=(l_{21}, l_{22}, ..., l_{2M})$. Between these two layers, there is a weight matrix $W$ with size $N \times M$. The operation, that we want to optimize is, $\mathbf{l_2} = \mathbf{l_1}W$.
+\todo[inline]{maybe explain in more detail and give examples of pruning algorithms here. (e.g. Optimal Brain Damage, Second order derivatives for network pruning: Optimal Brain Surgeon, Optimal Brain Surgeon and general network pruning, SEE Pruning Algorithms-a survey from R. Reed)}
+
+\subsection{Pruning Individual Weights}
+With this subcategory of pruning algorithms we want to optimize the number of floating point operations by removing some values from $W$. Theoretically, it makes sense to remove individual scalars from W, and exclude operations related to them. This would ideally reduce the required number of floating point operations. But in our library of our choice, Tensorflow, matrix multiplication implementation \texttt{tf.matmul} do not consider such a change. It takes two fixed size matrices, and does the computations using all of their values. Tensorflow also has another matrix multiplication operation, \texttt{tf.sparse\_tensor\_dense\_matmul}. This operation takes a sparse matrix and a dense matrix as inputs and outputs a dense matrix. To implement this method, we could convert W to a sparse tensor after pruning the weights. But, Tensorflow documentations about this method state;
+\begin{itemize}
+\item Will the SparseTensor A fit in memory if densified?
+\item Is the column count of the product large ($>> 1$)?
+\item Is the density of A larger than approximately $15\%$?
+\end{itemize}
+"If the answer to several of these questions is yes, consider converting the SparseTensor to a dense one.". In our terms, SparseTensor A is corresponding to the pruned version of $W$. 
+
+Since $W$ was already dense before, we can assume that the answer to the first question is yes. The column count of our product is $M$ which is much larger than $1$ in some cases. Also we don't know anything about the density of pruned version of $W$. Looking at these facts, we are assuming that implementing this operation will be problematic. Instead of delving deeper into these problems to evaluate this method, we will move on to other methods.
+
+\subsection{Activation Based Pruning}
+Activation based pruning, works by looking at individual values in layers, and prunes the layer and corresponding weight row/columns completely. To visualize this, we will assume that the fully connected layers we have defined are, trained to some extent, and activated using ReLU activations. With this definition, if we apply our dataset and count the number of activations in $\mathbf{l_1}$ and $\mathbf{l_2}$, we may realize that there are some neurons that are not being activated at all. By removing these neurons from the layers, we can reduce the number of operations. This removal operation is done by removing neurons based on their activations. 
+
