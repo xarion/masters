@@ -117,3 +117,4 @@ benchmark/android/local.properties
 *.mp
 
 MNIST_data
+cifar10_data
