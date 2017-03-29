@@ -4,7 +4,7 @@ mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 import tensorflow as tf
 
-tf.set_random_seed(245)
+tf.set_random_seed(244)
 
 sess = tf.InteractiveSession()
 
@@ -57,15 +57,16 @@ def max_pool_2x2(x):
 
 x_image = tf.reshape(x, [-1, 28, 28, 1])
 
-h_conv1 = conv2d_decomposing(x_image, filter_size=5, in_channels=1, out_channels=32, intermediate_channels=12)
+h_conv1 = conv2d(x_image, filter_size=5, in_channels=1, out_channels=32, intermediate_channels=5)
 h_pool1 = max_pool_2x2(h_conv1)
 
-h_conv2 = conv2d_decomposing(h_pool1, filter_size=5, in_channels=32, out_channels=64, intermediate_channels=64)
+h_conv2 = conv2d_decomposing(h_pool1, filter_size=5, in_channels=32, out_channels=64, intermediate_channels=48)
 h_pool2 = max_pool_2x2(h_conv2)
 
-h_fc1 = conv2d_decomposing(h_pool2, filter_size=7, in_channels=64, out_channels=1024, intermediate_channels=312, valid_padding=True)
-h_fc1 = tf.reshape(h_fc1, [-1, 1024])
-W_fc2 = weight_variable([1024, 10])
+out_channels = 128
+h_fc1 = conv2d_decomposing(h_pool2, filter_size=7, in_channels=64, out_channels=out_channels, intermediate_channels=96, valid_padding=True)
+h_fc1 = tf.reshape(h_fc1, [-1, out_channels])
+W_fc2 = weight_variable([out_channels, 10])
 b_fc2 = bias_variable([10])
 
 y_conv = tf.matmul(h_fc1, W_fc2) + b_fc2
