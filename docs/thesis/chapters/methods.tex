@@ -155,9 +155,30 @@ Add Bias & & $1 \times 10$
 \label{tab:nxn-mnist-classifier}
 \end{table}
 
+\subsection{Bottleneck Architecture}
+\cite{He:2015aa} introduced residual connections with bottleneck blocks. To optimize the performance of their network, they have introduced the bottleneck blocks. These blocks start with a $ 1 \times 1$ convolution that scales down the number of features to half. Followed by a $3 \times 3$ convolution without changing the number of features, and following that with a $1 \times 1$ convolution to quadruple the number of features. They also introduce residual connections, but we will not talk about these now.
 
+To compare the effectiveness of bottleneck blocks, \cite{He:2015aa} have compared the 34-layer structure consisting of pairs of $3 \times 3$ blocks with the 54-layer structure consisting of bottleneck blocks. Both networks have very similar number of FLOPS but the 54-layer network clearly outperforms the 30-layer network. This is a very clear demonstration of the effectiveness of bottleneck blocks.
 
-
+\begin{table}[]
+\centering
+\begin{tabular}{ | c | c | c | c | }
+\hline
+layer name			& output size 					& 34-layer																& 50-layer																			\\ \hline
+conv1				& $112 \times112$				& \multicolumn{2}{c|}{$ 7 \times 7$, $64$, stride $2$}																												\\ \hline
+\multirow{2}{*}{conv2\_x}	& \multirow{2}{*}{$56 \times 56$} 	& \multicolumn{2}{c|}{$3 \times 3$ max pool, stride $2$}																											\\ \cline{3-4} 
+					&							& $\begin{bmatrix} 3 \times 3, &   64 \\ 3 \times 3, &   64 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 64 \\ 3 \times 3, & 64 \\ 1 \times 1, & 256 \end{bmatrix}^{} \times 3 $ 		\\ \hline
+conv3\_x				& $28 \times 28$				& $\begin{bmatrix} 3 \times 3, & 128 \\ 3 \times 3, & 128 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 128 \\ 3 \times 3, & 128 \\ 1 \times 1, & 512 \end{bmatrix} \times 3$		\\ \hline
+conv4\_x				& $14 \times 14$				& $\begin{bmatrix} 3 \times 3, & 256 \\ 3 \times 3, & 256 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 256 \\ 3 \times 3, & 256 \\ 1 \times 1, & 1024 \end{bmatrix} \times 3$		\\ \hline
+conv5\_x				& $  7 \times   7$				& $\begin{bmatrix} 3 \times 3, & 512 \\ 3 \times 3, & 512 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 512 \\ 3 \times 3, & 512 \\ 1 \times 1, & 2048 \end{bmatrix} \times 3$		\\ \hline
+					& $  1 \times   1$				&\multicolumn{2}{c|}{average pool, 1000-d fc, softmax}																											\\ \hline
+\multicolumn{2}{| c |}{FLOPs}							& $3.6 \times 10^9$														& $3.8 \times 10^9$																	\\ \hline
+\multicolumn{2}{| c |}{top-1 err}							& $21.53$																& $20.74$																			\\ \hline
+\multicolumn{2}{| c |}{top-5 err}							& $5.60$																& $5.25$																			\\ \hline
+\end{tabular}
+\caption{Comparison of bottleneck blocks (50-layer) with stacked $ 3 \times 3$ layers (34-layer). }
+\label{tab:bottleneck-comparison}
+\end{table}
 
 
 
