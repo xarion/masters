@@ -45,6 +45,7 @@ import tensorflow as tf
 
 import cifar10_input
 
+
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
@@ -64,9 +65,9 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+NUM_EPOCHS_PER_DECAY = 6.0      # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+INITIAL_LEARNING_RATE = 0.01       # Initial learning rate.
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -74,6 +75,15 @@ INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 TOWER_NAME = 'tower'
 
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
+
+
+def batch_normalization(input_layer):
+  return tf.nn.batch_normalization(input_layer,
+                                   mean=tf.Variable(0, dtype=tf.float32),
+                                   variance=tf.Variable(1, dtype=tf.float32),
+                                   offset=tf.Variable(0, dtype=tf.float32),
+                                   scale=tf.Variable(1, dtype=tf.float32),
+                                   variance_epsilon=tf.Variable(1e-8, dtype=tf.float32))
 
 
 def _activation_summary(x):
@@ -106,9 +116,9 @@ def _variable_on_cpu(name, shape, initializer):
   Returns:
     Variable Tensor
   """
-  with tf.device('/cpu:0'):
-    dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
-    var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
+  # with tf.device('/cpu:0'):
+  dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+  var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
   return var
 
 
@@ -201,40 +211,61 @@ def inference(images):
   #
   # conv1
   with tf.variable_scope('conv1') as scope:
-    kernel = _variable_with_weight_decay('weights',
+    kernel_1 = _variable_with_weight_decay('weights_1',
                                          shape=[5, 5, 3, 64],
                                          stddev=5e-2,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv1 = tf.nn.relu(pre_activation, name=scope.name)
-    _activation_summary(conv1)
+                                         wd=None)
+    biases_1 = _variable_on_cpu('biases_1', [64], tf.constant_initializer(0.0))
+
+    conv_1_1 = tf.nn.conv2d(images, kernel_1, [1, 1, 1, 1], padding='SAME')
+    conv_1_1 = tf.nn.bias_add(conv_1_1, biases_1)
+    conv_1_1 = batch_normalization(conv_1_1)
+    conv_1 = tf.nn.relu(conv_1_1, name=scope.name)
+    #
+    # kernel_2 = _variable_with_weight_decay('weights_2',
+    #                                        shape=[5, 1, 16, 64],
+    #                                        stddev=5e-2,
+    #                                        wd=None)
+    # biases_2 = _variable_on_cpu('biases_2', [64], tf.constant_initializer(0.0))
+    #
+    # conv_1_2 = tf.nn.conv2d(conv_1, kernel_2, [1, 1, 1, 1], padding='SAME')
+    # conv_1_2 = tf.nn.bias_add(conv_1_2, biases_2)
+    # conv_1_2 = batch_normalization(conv_1_2)
+    # conv_1 = tf.nn.relu(conv_1_2, name=scope.name)
+
+    _activation_summary(conv_1)
 
   # pool1
-  pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
+  pool_1 = tf.nn.max_pool(conv_1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
                          padding='SAME', name='pool1')
-  # norm1
-  norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-                    name='norm1')
 
   # conv2
   with tf.variable_scope('conv2') as scope:
-    kernel = _variable_with_weight_decay('weights',
+    kernel_1 = _variable_with_weight_decay('weights_1',
                                          shape=[5, 5, 64, 64],
                                          stddev=5e-2,
-                                         wd=0.0)
-    conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
-    pre_activation = tf.nn.bias_add(conv, biases)
-    conv2 = tf.nn.relu(pre_activation, name=scope.name)
-    _activation_summary(conv2)
+                                         wd=None)
+    biases_1 = _variable_on_cpu('biases_1', [64], tf.constant_initializer(0.1))
 
-  # norm2
-  norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-                    name='norm2')
+    conv_2_1 = tf.nn.conv2d(pool_1, kernel_1, [1, 1, 1, 1], padding='SAME')
+    conv_2_1 = tf.nn.bias_add(conv_2_1, biases_1)
+    conv_2_1 = batch_normalization(conv_2_1)
+    conv_2 = tf.nn.relu(conv_2_1)
+
+    # kernel_2 = _variable_with_weight_decay('weights_2',
+    #                                        shape=[5, 1, 64, 64],
+    #                                        stddev=5e-2,
+    #                                        wd=None)
+    # biases_2 = _variable_on_cpu('biases_2', [64], tf.constant_initializer(0.1))
+    #
+    # conv_2_2 = tf.nn.conv2d(conv_2, kernel_2, [1, 1, 1, 1], padding='SAME')
+    # conv_2_2 = tf.nn.bias_add(conv_2_2, biases_2)
+    # conv_2_2 = batch_normalization(conv_2_2)
+    # conv_2 = tf.nn.relu(conv_2_2)
+    _activation_summary(conv_2)
+
   # pool2
-  pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],
+  pool2 = tf.nn.max_pool(conv_2, ksize=[1, 3, 3, 1],
                          strides=[1, 2, 2, 1], padding='SAME', name='pool2')
 
   # local3
@@ -243,7 +274,7 @@ def inference(images):
     reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
     dim = reshape.get_shape()[1].value
     weights = _variable_with_weight_decay('weights', shape=[dim, 384],
-                                          stddev=0.04, wd=0.004)
+                                          stddev=0.04, wd=None)
     biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
     local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
     _activation_summary(local3)
@@ -251,7 +282,7 @@ def inference(images):
   # local4
   with tf.variable_scope('local4') as scope:
     weights = _variable_with_weight_decay('weights', shape=[384, 192],
-                                          stddev=0.04, wd=0.004)
+                                          stddev=0.04, wd=None)
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
     local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
     _activation_summary(local4)
@@ -262,7 +293,7 @@ def inference(images):
   # and performs the softmax internally for efficiency.
   with tf.variable_scope('softmax_linear') as scope:
     weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
-                                          stddev=1/192.0, wd=0.0)
+                                          stddev=1/192.0, wd=None)
     biases = _variable_on_cpu('biases', [NUM_CLASSES],
                               tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
@@ -352,7 +383,7 @@ def train(total_loss, global_step):
 
   # Compute gradients.
   with tf.control_dependencies([loss_averages_op]):
-    opt = tf.train.GradientDescentOptimizer(lr)
+    opt = tf.train.AdamOptimizer()
     grads = opt.compute_gradients(total_loss)
 
   # Apply gradients.
