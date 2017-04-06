@@ -22,12 +22,12 @@ Do not include descriptions of results.
 \fi
 \section{Dependencies}
 \subsection{Tensorflow}
-In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todo[inline]{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
-\todo[inline]{things to be explained: FC layer, Convolution Operation, what do we mean when we say neuron/node, activation, bias, training dataset}
+In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todoin{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
+\todoin{things to be explained: FC layer, Convolution Operation, what do we mean when we say neuron/node, activation, bias, training dataset}
 \section{Pruning}
 Pruning aims to reduce the number of operations by deleting the parameters that has low or no impact in the result. Studies show that applying this method in an ANN is effective in reducing the model complexity, improving generalization, and they are effective in reducing the required training cycles. In our experiments we will try to reproduce these effects.
 To visualize these methods, let's think of two fully connected layers, $\mathbf{l_1}$ and $\mathbf{l_2}$. $\mathbf{l_1}$ is the input of this operation and it consists of $N$ values, $\mathbf{l_1}=(l_{11}, l_{12}, ..., l_{1N})$. $\mathbf{l_2}$ is the output of this operation consists of $M$ values, $\mathbf{l_2}=(l_{21}, l_{22}, ..., l_{2M})$. Between these two layers, there is a weight matrix $W$ with size $N \times M$. The operation, that we want to optimize is, $\mathbf{l_2} = \mathbf{l_1}W$.
-\todo[inline]{maybe explain in more detail and give examples of pruning algorithms here. (e.g. Optimal Brain Damage, Second order derivatives for network pruning: Optimal Brain Surgeon, Optimal Brain Surgeon and general network pruning, SEE Pruning Algorithms-a survey from R. Reed)}
+\todoin{maybe explain in more detail and give examples of pruning algorithms here. (e.g. Optimal Brain Damage, Second order derivatives for network pruning: Optimal Brain Surgeon, Optimal Brain Surgeon and general network pruning, SEE Pruning Algorithms-a survey from R. Reed)}
 
 \subsection{Pruning Individual Weights}
 With this subcategory of pruning algorithms we want to optimize the number of floating point operations by removing some values from $W$. Theoretically, it makes sense to remove individual scalars from W, and exclude operations related to them. This would ideally reduce the required number of floating point operations. But in our library of our choice, Tensorflow, matrix multiplication implementation \texttt{tf.matmul} do not consider such a change. It takes two fixed size matrices, and does the computations using all of their values. Tensorflow also has another matrix multiplication operation, \texttt{tf.sparse\_tensor\_dense\_matmul}. This operation takes a sparse matrix and a dense matrix as inputs and outputs a dense matrix. To implement this method, we could convert W to a sparse tensor after pruning the weights. But, Tensorflow documentations about this method state;
@@ -47,31 +47,31 @@ Activation based pruning, works by looking at individual values in layers, and p
 To verify the validity of this method, we set up a basic experiment. We have implemented a neural network consisting of 2 inputs, $\mathbf{i} = (i_1, i_2)$, 1 fully connected layer with $n = 1000$ hidden nodes and 1 output, $o$. We have used ReLU \cite{nair2010rectified} activations on our hidden layer. For the sake of simplicity, we have defined the expected output $y$ as $y = i_1 + i_2$. We chose a simple problem so that we precisely know the most optimum neural network structure that would be able to perform this calculation. Which is the same network where the fully connected layer has one hidden node, all weights equal to $1$ and all biases equal to $0$.
 
 We have calculated the loss using mean squared error, and optimized it using Momentum Optimizer (learning rate $0.01$ and momentum $0.3$). Using $1.000.000$ samples, we trained the network with batch size $1000$. With these parameters, we ran a training session with 10 epochs and we have observed that the loss didn't converge to 0. Therefore, the model was unable to find the correct solution with this optimizer. 
-\todo[inline]{We should also try different optimizers here}
+\todoin{We should also try different optimizers here}
 \subsubsection{Vanilla Pruning}
 First we have implemented the very basic idea of pruning unused activations. To do so, we defined training cycles based on the method defined in \cite{Hu:2016aa}. In each training cycle, 1) we have trained the model for some epochs, 2) we lock the weights, 3) feed the training data to the network and count the activations for each neuron in the hidden layer, 4) prune the neurons that have less than or equal to the activation threshold, 5) go back to step $1$ if some neurons were pruned, stop otherwise.
 
 When tested with $0$ activation threshold, after the first training cycle, this method did not to prune more weights. In our experiments, we have pruned approximately 950 weights out of 1000. This result is promising but at the same time, it's not close enough to the result we were expecting. We delved deeper into the source of this issue.
 
-\todo[inline]{We should try different optimizers and make the beginning of the case about why we decided to distort weights.Tell that we have checked the gradients and seen that they were mostly in one direction (+). }
+\todoin{We should try different optimizers and make the beginning of the case about why we decided to distort weights.Tell that we have checked the gradients and seen that they were mostly in one direction (+). }
 
 \subsubsection{Distorted Pruning}
 When we inspected the gradients of weights, we have seen that most of them were in the positive direction. In our case, this trend in gradients is not helping with the understanding of which neurons are necessary, and which are not. This trend can also be understood as, the feature representation is shared among different hidden neurons. 
-\todo[inline]{talk about what does "all gradients are in the positive direction" mean for feature representation}
+\todoin{talk about what does "all gradients are in the positive direction" mean for feature representation}
 To prevent shared feature representation, we have decided to push the weights to different directions, randomly. This resulted with the result closes to optimum, but not the exact solution that we were looking for. 
-\todo[inline]{the results were in a form not resembling the real solution. maybe because floating point numbers not adding up perfectly, but the result is almost the same in terms of our loss. the exact values of weights and biases are: \\
+\todoin{the results were in a form not resembling the real solution. maybe because floating point numbers not adding up perfectly, but the result is almost the same in terms of our loss. the exact values of weights and biases are: \\
 \texttt{w1: [[ 0.74285096], [ 0.64994317]]\\
 b1: [ 7.80925274]\\
 w2: [[-6.75151157]]\\
 b2: [ 7.80925274]}\\
 So since our random values are between -1 and 1, these values are actually okay.}
-\todo[inline]{talk about how you decide on the amount of distortion (currently $rand(weights.shape) * (1-var(weights))$). Talk about what changed when we introduced }
+\todoin{talk about how you decide on the amount of distortion (currently $rand(weights.shape) * (1-var(weights))$). Talk about what changed when we introduced }
 \subsubsection{Regularized Distorted Pruning}
 Since the solution we found is only resembling our result under some boundaries, we have decided to add an l1 regularizer to our loss. By doing so we are aiming to push the high bias and w2 values closer to 0. But it doesn't really make any difference when used with Moment Optimizer.
 
 
 \subsection{Activation Based Pruning - Convolution and Deconvolutions}
-\todo[inline]{Put references for conv and deconv operations. }
+\todoin{Put references for conv and deconv operations. }
 In theory, convolution operation is a matrix multiplication applied on a sliding window. Thus, counting the output feature activations of a convolution operation, we can apply activation based pruning. 
 
 \subsubsection{Experiment Set-up}
@@ -100,29 +100,35 @@ In our case, our encoder blocks are reducing the matrix width and height to half
 
 To define the network to experiment on, we chose $[32, 64, 32]$ as the output channels of Encoder 1, Encoder 2 and Decoder 1 respectively.
 
-\todo[inline]{This definition may not be good. check it.}
+\todoin{This definition may not be good. check it.}
 
 \subsubsection{Vanilla Pruning}
 As we did in the Fully Connected Layers, we have pruned the connections that are not being activated. In these experiments we have seen that the network has been pruned insignificantly. After applying this method, we have achieved a network consisting of $[16, 64, 22]$ output channels for blocks Encoder 1, Encoder 2 and Decoder 1 respectively.
 
 \subsubsection{Distorted Pruning}
-\todo[inline]{this doesn't change anything.}
+\todoin{test if this actually changes anything.}
+\todoin{we can also check activation probabilities and make a decisions based on this data}
 
+\subsubsection{Regularized Pruning}
+\todoin{explain why you chose this regularizer, tell the effect of using it}
 
+\subsubsection{Pruning Outliers}
+\todoin{explain why you decided to prune the "outliers" from activations, how you decide on what are outliers $(mean - 2*std)$ and how this effects the final solution}
 
-\todo[inline]{we can also check activation probabilities and make a decisions based on this data}
-
-
+\subsubsection{Regularized and Distorted Outilier Pruning}
+\todoin{explain your results when you combined these methods. }
 
 
 \section{Efficient Structures}
+Some structures help neural networks represent more information using less parameters.
+\todoin{talk more about why some structures are more efficient, how they help with training speed, how they reduce the number parameters or number of floating point operations even while increasing the accuracy.}
 \subsection{1D Convolutions}
 Convolution kernels could be decomposed into smaller operations. For example using SVD, we can decompose the convolution kernel into the multiplication for two smaller kernels, and by applying these kernels consequently, we can approximate the convolution operation with fewer floating point operations. Instead of doing separating learned convolutions, we are going to use the method introduced in \cite{alvarez2016decomposeme}. This method forces the separability of convolution operation as a hard constraint. 
 
 Normally convolution operations are defined 2 dimensional ($2D$). That is, kernel sizes are ($2D$). For example convolutions we have used in Section \ref{sec:activation-based-pruning-convolution} are $2D$, their kernel sizes are $3 \times 3$. With this method, we are aiming to construct a $N \times N$ convolution operation as a combination two convolution operations. The first convolution has kernel size $1 \times N$ and the following convolution has $N \times 1$, or vice versa. Looking back at the experiment we did in  Section \ref{sec:activation-based-pruning-convolution}, instead of applying one $3 \times 3$ convolution, we are talking about applying one $1 \times 3$ convolution followed by a $3 \times 1$ convolution. 
 
 The amount of speed up can be calculated with Big-O notation($\mathcal{O}$). A convolution operation can be seen as a matrix multiplication applied to consequent subsections of an image. To visualize this, let's assume that we have a convolution operation with kernel size $N$, input channels $K$ and output channels $L$. Assuming that we are applying that operation to a $N \times N$ image patch with $K$ channels, our operation can be simplified as multiplying this $N*N*K$ vector with $N*N*K \times L$ matrix. The complexity of this operation can be expressed as $\mathcal{O}(N^2KL)$. When composed as two $1D$ compositions, this operation will be represented with two $1D$ convolutions. First convolution is multiplying vector $N*K$ with matrix $N*K \times P$ and the second convolution is multiplying vector $N*P$ with matrix $N*P \times L$. As you can see we have introduced the variable $P$ as the intermediate output of the first convolution. The complexity of these operations can be described as, $\mathcal{O}(NLP)$ and $\mathcal{O}(NPK)$. And summing them up, we can say $\mathcal{O}(NP(L + K))$. To determine if this decomposition is making things basic, we could basically try to define a meaningful $P$ while trying to make sure that $\frac{NP(L+K)}{N^2KL} < 1$.
-\todo[inline]{shall we cite Big $\mathcal{O}$?}
+\todoin{shall we cite Big $\mathcal{O}$?}
 
 To show the validity of this method, we have conducted two experiments. 
 \subsubsection{Experiment - MNIST Classification}
@@ -155,10 +161,13 @@ Add Bias & & $1 \times 10$
 \label{tab:nxn-mnist-classifier}
 \end{table}
 
-\subsection{Bottleneck Architecture}
-\cite{He:2015aa} introduced residual connections with bottleneck blocks. To optimize the performance of their network, they have introduced the bottleneck blocks. These blocks start with a $ 1 \times 1$ convolution that scales down the number of features to half. Followed by a $3 \times 3$ convolution without changing the number of features, and following that with a $1 \times 1$ convolution to quadruple the number of features. They also introduce residual connections, but we will not talk about these now.
+\subsection{Inception Blocks}
+\todoin{do the introduction to \cite{Szegedy:2014aa} and how it is improved using \cite{Szegedy_2016_CVPR}}
+\subsection{Bottleneck Blocks}
+\cite{He:2015aa} introduced residual connections with bottleneck blocks. To optimize the performance of their network, they have introduced the bottleneck blocks. Bottleneck blocks contain 3 convolutions. First is a $ 1 \times 1$ convolution that scales down the input channels to half. Output is applied to a $3 \times 3$ convolution which doesn't change the number of channels, and following that with a $1 \times 1$ convolution to quadruple the number of input channels. As an example, we can look at the conv3\_x block of 50-layer network described in Table \ref{tab:bottleneck-comparison}.
 
-\cite{He:2015aa} compared the performance of their various network configurations on ImageNet validation dataset. From these comparisons, we have selected the 34-layer structure consisting of pairs of $3 \times 3$ blocks with the 54-layer structure consisting of bottleneck blocks. In table \ref{tab:bottleneck-comparison} we have compared these networks by their structure, required number of FLOPS, and their top-1 and top-5 errors on this dataset. This a clear demonstration of the effectiveness of bottleneck blocks.
+\cite{He:2015aa} compared the performance of various network configurations on ImageNet validation dataset. From these comparisons, we have selected the 34-layer network and the 54-layer network. The 34-layer network is consisting of pairs of $3 \times 3$ blocks. The 50-layer network is consisting of bottleneck blocks. In table \ref{tab:bottleneck-comparison} we have compared these networks by their structure, required number of FLOPs, and their top-1 and top-5 errors on this dataset. As we can see in the FLOPs, the networks have about $5\%$ of difference in number of floating point operations. As \cite{He:2015aa} reports, this small increase in parameters is effecting accuracy of the model considerably. 
+
 \begin{table}[]
 \centering
 \begin{tabular}{ | c | c | c | c | }
@@ -172,17 +181,30 @@ conv4\_x				& $14 \times 14$				& $\begin{bmatrix} 3 \times 3, & 256 \\ 3 \times
 conv5\_x				& $  7 \times   7$				& $\begin{bmatrix} 3 \times 3, & 512 \\ 3 \times 3, & 512 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 512 \\ 3 \times 3, & 512 \\ 1 \times 1, & 2048 \end{bmatrix} \times 3$		\\ \hline
 					& $  1 \times   1$				&\multicolumn{2}{c|}{average pool, 1000-d fc, softmax}																											\\ \hline
 \multicolumn{2}{| c |}{FLOPs}							& $3.6 \times 10^9$														& $3.8 \times 10^9$																	\\ \hline
-\multicolumn{2}{| c |}{top-1 error}						& $21.53$																& $20.74$																			\\ \hline
-\multicolumn{2}{| c |}{top-5 error}						& $5.60$																& $5.25$																			\\ \hline
+\multicolumn{2}{| c |}{top-1 error ($\%$)}						& $21.53$																& $20.74$																			\\ \hline
+\multicolumn{2}{| c |}{top-5 error ($\%$)}						& $5.60$																& $5.25$																			\\ \hline
+\multicolumn{2}{| c |}{top-1 error \small{($\%$, \textbf{10-crop} testing)}}						& $24.19$																& $22.85$																			\\ \hline
+\multicolumn{2}{| c |}{top-5 error \small{($\%$, \textbf{10-crop} testing)}}						& $7.40$																& $6.71$																			\\ \hline
 \end{tabular}
 \caption{Comparison of bottleneck blocks (50-layer) with stacked $ 3 \times 3$ layers (34-layer). }
 \label{tab:bottleneck-comparison}
 \end{table}
 
+But the main contribution of \cite{He:2015aa} is not the bottleneck architecture, but Residual Connections that we will see in the next subsection. 
 
-
-
-
+\subsection{Residual Connections}
+\cite{He:2015aa} is also introducing a method called Residual Connections.
+\todoin{go into details of how this works using information given in \cite{He:2015aa} and \cite{DBLP:journals/corr/SzegedyIV16}}
+\section{Factorization}
+Using Factorization methods, we can decompose a matrix into smaller different matrices. Some factorization methods can be used to reduce the dimensionality of these smaller matrices while approximating the original matrix. This has interesting uses with Neural Networks. Assume that we have a matrix multiplication operation. We are multiplying a random input $\mathbf{X}$ with a fixed weight matrix $\mathbf{W}$. Let's say $\mathbf{X}$ is $K \times N$ and $\mathbf{W}$ is $N \times M$. The matrix multiplication of these two matrices has the complexity of $KNM$. If we can successfully decompose $\mathbf{W}$ to the composition of two matrices $\mathbf{O}$ and $\mathbf{P}$ with dimensions $N \times L$ and $L \times M$, respectively, we can rewrite our matrix multiplication operation as; $\mathbf{X}\mathbf{W} \approx \mathbf{X}\mathbf{O}\mathbf{P}$. The new complexity of this operation would be $KNL + NLM = NL(K+M)$. If we can find a decomposition where $L$ is sufficiently small that successfully approximates the matrix $\mathbf{W}$ and satisfies $NL(K+M) < KNM$.
+\subsection{SVD}
+Using SVD we can make this approximation. SVD decomposes the a matrix into 3 parts. 
+\todoin{Talk what SVD does, what are the decomposed matrices, what are the singular values and how they are relevant to the approximation of $\mathbf{W}$. Show your experiments and results from when you ran the experiments.} 
+\todoin{@Luc, In our last meeting I mentioned that Factorization is not possible, but I confused the terms. Actually, Weight Sharing is impossible, but Factorization is possible and I already have a method implemented. I was thinking of SVD as a Pruning operation, because I was only looking at it as pruning the weights that doesn't have importance in the singular value decomposition. That doesn't make sense. It should be classified as a Factorization Method.}
+\section{Other Methods}
+\subsection{Weight Sharing}
+Weight sharing assumes we have a limited set of weights, and when we are representing values, instead of representing the value itself, we represent the indices to weights. This operation is used in some papers successfully to reduce model size considerably. To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
+\todoin{give some examples here, you're saying some papers.}
 
 
 
