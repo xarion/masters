@@ -118,3 +118,5 @@ benchmark/android/local.properties
 
 MNIST_data
 cifar10_data
+
+*train_logs*
