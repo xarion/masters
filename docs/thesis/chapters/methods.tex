@@ -20,10 +20,35 @@ The methods section should answering the following questions and caveats:
 Citations in this section should be limited to data sources and references of where to find more complete descriptions of procedures.
 Do not include descriptions of results. 
 \fi
-\section{Dependencies}
-\subsection{Tensorflow}
-In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todoin{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
+\iffalse
+We need to be talking about these.
+    Quantization
+        8-bit (known to work in mobile, we will test it in the very end)
+        n-bit (not possible with Tensorflow)
+    Pruning,
+        by weight (done)
+        by neuron activations (done)
+        by Fisher Information Metric (skipped because hard to implement)
+    Different Types of Operators,
+        ef-operation (http://arxiv.org/abs/1702.02676) (not possible with Tensorflow)
+        separable convolutions (done)
+    Factorization,
+        by SVD (done)
+        weight sharing (not possible with Tensorflow)
+        non-negative matrix factorization (not good in theory)
+    Different Structures,
+        bottleneck blocks (reported)
+        inception blocks (to be reported)
+        1D convolutions (done)
+        spiking neural network (not possible)
+    Improving Network Efficiency
+        Residual Connections
+        Batch Normalization
+\fi
 
+\section{Quantization}
+\subsection{8-bit Quantization}
+\subsection{n-bit Quantization}
 \section{Pruning}
 Pruning aims to reduce the number of operations by deleting the parameters that has low or no impact in the result. Studies show that applying this method in an ANN is effective in reducing the model complexity, improving generalization, and they are effective in reducing the required training cycles. In our experiments we will try to reproduce these effects.
 To visualize these methods, and help with the explanation later, let's think of two fully connected layers, $\mathbf{l_1}$ and $\mathbf{l_2}$. $\mathbf{l_1}$ is the input of this operation and it consists of $N$ values, $\mathbf{l_1}=(l_{11}, l_{12}, ..., l_{1N})$. $\mathbf{l_2}$ is the output of this operation consists of $M$ values, $\mathbf{l_2}=(l_{21}, l_{22}, ..., l_{2M})$. Between these two layers, there is a weight matrix $W$ with size $N \times M$. The operation, that we want to optimize is, $\mathbf{l_2} = \mathbf{l_1}W$. To do so, we will look at 2 cases of pruning. One will be focusing on pruning individual weights, and the other will be focusing on removing unimportant rows and columns from $\mathbf{l_2}$, $\mathbf{l_1}$ and $W$. 
@@ -44,81 +69,34 @@ In our terms, SparseTensor $A$ is corresponding to the pruned version of $W$. Si
 \subsection{Activation Based Pruning - Fully Connected Layers} \label{sec:activation-based-pruning-convolution}
 Activation based pruning, works by looking at individual values in layers, and prunes the layer and corresponding weight row/columns completely. To visualize this, we will assume that the fully connected layers we have defined are, trained to some extent, and activated using ReLU activations. With this definition, if we apply our dataset and count the number of activations in $\mathbf{l_1}$ and $\mathbf{l_2}$, we may realize that there are some neurons that are not being activated at all. By removing these neurons from the layers, we can reduce the number of operations. This removal operation is done by removing neurons based on their activations. 
 \todoin{add figure to show what happens when we prune}
-\subsubsection{Experiment Set-up}
-To verify the validity of this method, we set up a basic experiment. We have implemented a neural network consisting of 2 inputs, $\mathbf{i} = (i_1, i_2)$, 1 fully connected layer with $n = 1000$ hidden nodes and 1 output, $o$. We have used ReLU \cite{nair2010rectified} activations on our hidden layer. For the sake of simplicity, we have defined the expected output $y$ as $y = i_1 + i_2$. We chose a simple problem so that we precisely know the most optimum neural network structure that would be able to perform this calculation. Which is the same network where the fully connected layer has one hidden node, all weights equal to $1$ and all biases equal to $0$.
-
-We have calculated the loss using mean squared error, and optimized it using Momentum Optimizer (learning rate $0.01$ and momentum $0.3$). Using $1.000.000$ samples, we trained the network with batch size $1000$. With these parameters, we ran a training session with 10 epochs and we have observed that the loss didn't converge to 0. Therefore, the model was unable to find the correct solution with this optimizer. 
-\todoin{We should also try different optimizers here}
-\subsubsection{Vanilla Pruning}
-First we have implemented the very basic idea of pruning unused activations. To do so, we defined training cycles based on the method defined in \cite{Hu:2016aa}. In each training cycle, 1) we have trained the model for some epochs, 2) we lock the weights, 3) feed the training data to the network and count the activations for each neuron in the hidden layer, 4) prune the neurons that have less than or equal to the activation threshold, 5) go back to step $1$ if some neurons were pruned, stop otherwise.
-
-When tested with $0$ activation threshold, after the first training cycle, this method did not to prune more weights. In our experiments, we have pruned approximately 950 weights out of 1000. This result is promising but at the same time, it's not close enough to the result we were expecting. We delved deeper into the source of this issue.
-
-\todoin{We should try different optimizers and make the beginning of the case about why we decided to distort weights.Tell that we have checked the gradients and seen that they were mostly in one direction (+). }
-
-\subsubsection{Distorted Pruning}
-When we inspected the gradients of weights, we have seen that most of them were in the positive direction. In our case, this trend in gradients is not helping with the understanding of which neurons are necessary, and which are not. This trend can also be understood as, the feature representation is shared among different hidden neurons. 
-\todoin{talk about what does "all gradients are in the positive direction" mean for feature representation}
-To prevent shared feature representation, we have decided to distort the weights using random values. This allowed some weights to become unused, therefore getting closer to the optimum result.
-\todoin{the results were in a form not resembling the real solution. maybe because floating point numbers not adding up perfectly, but the result is almost the same in terms of our loss. the exact values of weights and biases are: \\
-\texttt{w1: [[ 0.74285096], [ 0.64994317]]\\
-b1: [ 7.80925274]\\
-w2: [[-6.75151157]]\\
-b2: [ 7.80925274]}\\
-So since our random values are between -1 and 1, these values are actually okay.}
-\todoin{talk about how you decide on the amount of distortion (currently $rand(weights.shape) * (1-var(weights))$). Talk about what changed when we introduced }
-\subsubsection{Regularized Distorted Pruning}
-Since the solution we found is only resembling our result under some boundaries, we have decided to add an l1 regularizer to our loss. By doing so we are aiming to push the high bias and w2 values closer to 0. But it doesn't really make any difference when used with Moment Optimizer.
-
 
 \subsection{Activation Based Pruning - Convolution and Deconvolutions}
 \todoin{Put references for conv and deconv operations. }
 In theory, convolution operation is a matrix multiplication applied on a sliding window. Thus, counting the output feature activations of a convolution operation, we can apply activation based pruning. 
 
-\subsubsection{Experiment Set-up}
-To verify the validity of this method, we have implemented an auto encoder for MNIST Dataset \cite{lecun1998mnist}. MNIST contains $28 \times 28$ grayscale images of handwritten digits. The autoencoder consists of two parts. First part is the encoder. The encoder aims to reduce the dimensionality of input. The decoder aims to convert the encoded data back to it's original form.
+\subsection{Fisher Information Metric}
 
-We have defined the auto encoder with two encoder blocks followed by two decoder blocks. Each encoding block is running convolutions with kernel size $3$, strides of $2$ and $SAME$ padding. Then we are adding bias to this result, following this we are applying batch normalization \cite{ioffe2015batch} and then ReLU activation \cite{nair2010rectified}. Each decoding block is running deconvolutions with kernel size $3$ and strides of $2$. Followed by adding bias, batch normalization and ReLU activations. 
+\section{Efficient Operations}
+\subsection{Separable Convolutions}
+As the name suggests, these operations separate the standard convolution operation into two parts. These parts are called Depthwise convolutions and Pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. Pointwise convolution correlates these output channels with each other, or in other words mixes them, by applying a matrix multiplication. For example, let's assume we have an input with 3 channels, applying a Depthwise convolution with 4 filters to that, we would get 12 output channels. Then applying a Pointwise convolution to that, we correlate these 12 output channels to create new output channels. 
 
-The information contained in one $28 \times 28 \times 1$ matrix is represented with $784$ units (floating points in this case). Therefore, a good auto-encoder should be capable of reducing this number when encoding. Similarly, converting the reduced matrix back to it's original form with minimal loss while decoding. The baseline auto-encoder we will compare our results is the non-encoding one given in table \ref{tab:mnist_baseline_encoder}.
+To describe the complexity of this operation, let's assume that we have a separable convolution with kernel size $N$, input channels $K$, depthwise filters $I$ and output channels $L$. First operation will be applying $L$ filters with size $N \times N$ to $K$ input channels, one by one. The number of operations we need for this operation is, $IKN^2$. Second operation will be multiplying $1 \times I$ output with $I \times L$ correlation matrix, requiring $IL$ floating point operations. In total we need $I(KN^2+L)$ operations. 
+\subsection{ef-operator}
 
-In our case, our encoder blocks are reducing the matrix width and height to half. Therefore, if they output $4$ times the number of input channels, they should represent the same information losslessly. Similarly our decoder blocks are doubling the matrix width and height. Therefore if they output a quarter of the number of input channels, they should be able to decode the encoded information perfectly. In Table \ref{tab:mnist_baseline_encoder} we have defined the layer output dimensions for that baseline auto-encoder.
-\begin{table}
-\begin{center}
-\begin{tabular}{ c | c }
- Block Name & Output Dimensions ($h \times w \times c$) \\
- \hline
- Input Image & $28 \times 28 \times 1$ \\
- Encoder 1 & $14 \times 14 \times 4$ \\  
- Encoder 2 & $7 \times 7 \times 16$ \\
- Decoder 1 & $14 \times 14 \times 4$ \\  
- Decoder 2 & $28 \times 28 \times 1$ 
-\end{tabular}
-\end{center}
-\caption{The baseline network that could perform lossless encoding in theory.}
-\label{tab:mnist_baseline_encoder}
-\end{table}
+\section{Factorization}
+Using Factorization methods, we can decompose a matrix into smaller different matrices. Some factorization methods can be used to reduce the dimensionality of these smaller matrices while approximating the original matrix. This has interesting uses with Neural Networks. Assume that we have a matrix multiplication operation. We are multiplying a random input $\mathbf{X}$ with a fixed weight matrix $\mathbf{W}$. Let's say $\mathbf{X}$ is $K \times N$ and $\mathbf{W}$ is $N \times M$. The matrix multiplication of these two matrices has the complexity of $KNM$. If we can successfully decompose $\mathbf{W}$ to the composition of two matrices $\mathbf{O}$ and $\mathbf{P}$ with dimensions $N \times L$ and $L \times M$, respectively, we can rewrite our matrix multiplication operation as; $\mathbf{X}\mathbf{W} \approx \mathbf{X}\mathbf{O}\mathbf{P}$. The new complexity of this operation would be $KNL + NLM = NL(K+M)$. If we can find a decomposition where $L$ is sufficiently small that successfully approximates the matrix $\mathbf{W}$ and satisfies $NL(K+M) < KNM$, we can reduce the complexity of this matrix multiplication.
+\todoin{draw some figures explaining how this happens}
+\todoin{Luc says: If XW is not exactly equal XOP, how will you deal with this?}
+\subsection{SVD}
+Using SVD we can make this approximation. SVD decomposes the a matrix into 3 parts. 
+\todoin{Talk what SVD does, what are the decomposed matrices, what are the singular values and how they are relevant to the approximation of $\mathbf{W}$. Show your experiments and results from when you ran the experiments.} 
 
-To define the network to experiment on, we chose $[32, 64, 32]$ as the output channels of Encoder 1, Encoder 2 and Decoder 1 respectively.
 
-\todoin{This definition may not be good. check it.}
+\subsection{Weight Sharing}
+Weight sharing assumes we have a limited set of weights, and when we are representing values, instead of representing the value itself, we represent the indices to weights. This operation is used in some papers successfully to reduce model size considerably. To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
+\todoin{give some examples here, you're saying some papers.}
 
-\subsubsection{Vanilla Pruning}
-As we did in the Fully Connected Layers, we have pruned the connections that are not being activated. In these experiments we have seen that the network has been pruned insignificantly. After applying this method, we have achieved a network consisting of $[16, 64, 22]$ output channels for blocks Encoder 1, Encoder 2 and Decoder 1 respectively.
-
-\subsubsection{Distorted Pruning}
-\todoin{test if this actually changes anything.}
-\todoin{we can also check activation probabilities and make a decisions based on this data}
-
-\subsubsection{Regularized Pruning}
-\todoin{explain why you chose this regularizer, tell the effect of using it}
-
-\subsubsection{Pruning Outliers}
-\todoin{explain why you decided to prune the "outliers" from activations, how you decide on what are outliers $(mean - 2*std)$ and how this effects the final solution}
-
-\subsubsection{Regularized and Distorted Outilier Pruning}
-\todoin{explain your results when you combined these methods. }
-
+\subsection{Other Factorization Methods}
 
 \section{Efficient Structures}
 Some structures help neural networks represent more information using less parameters.
@@ -198,34 +176,12 @@ conv5\_x				& $  7 \times   7$				& $\begin{bmatrix} 3 \times 3, & 512 \\ 3 \tim
 
 But the main contribution of \cite{He:2015aa} is not the bottleneck architecture, but Residual Connections that we will see in another section. 
 
-\section{Alternative Operations}
-\subsection{Separable Convolutions}
-As the name suggests, these operations separate the standard convolution operation into two parts. These parts are called Depthwise convolutions and Pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. Pointwise convolution correlates these output channels with each other, or in other words mixes them, by applying a matrix multiplication. For example, let's assume we have an input with 3 channels, applying a Depthwise convolution with 4 filters to that, we would get 12 output channels. Then applying a Pointwise convolution to that, we correlate these 12 output channels to create new output channels. 
 
-To describe the complexity of this operation, let's assume that we have a separable convolution with kernel size $N$, input channels $K$, depthwise filters $I$ and output channels $L$. First operation will be applying $L$ filters with size $N \times N$ to $K$ input channels, one by one. The number of operations we need for this operation is, $IKN^2$. Second operation will be multiplying $1 \times I$ output with $I \times L$ correlation matrix, requiring $IL$ floating point operations. In total we need $I(KN^2+L)$ operations. Compared to the regular convolutions requiring $N^2KL$ operations, this operation can give great accuracy improvements. 
-\section{Best Practices}
+\section{Improving Network Efficiency}
 \subsection{Residual Connections}
-
 \cite{He:2015aa} is also introducing a method called Residual Connections.
 \todoin{go into details of how this works using information given in \cite{He:2015aa} and \cite{DBLP:journals/corr/SzegedyIV16}}
-\section{Factorization}
-Using Factorization methods, we can decompose a matrix into smaller different matrices. Some factorization methods can be used to reduce the dimensionality of these smaller matrices while approximating the original matrix. This has interesting uses with Neural Networks. Assume that we have a matrix multiplication operation. We are multiplying a random input $\mathbf{X}$ with a fixed weight matrix $\mathbf{W}$. Let's say $\mathbf{X}$ is $K \times N$ and $\mathbf{W}$ is $N \times M$. The matrix multiplication of these two matrices has the complexity of $KNM$. If we can successfully decompose $\mathbf{W}$ to the composition of two matrices $\mathbf{O}$ and $\mathbf{P}$ with dimensions $N \times L$ and $L \times M$, respectively, we can rewrite our matrix multiplication operation as; $\mathbf{X}\mathbf{W} \approx \mathbf{X}\mathbf{O}\mathbf{P}$. The new complexity of this operation would be $KNL + NLM = NL(K+M)$. If we can find a decomposition where $L$ is sufficiently small that successfully approximates the matrix $\mathbf{W}$ and satisfies $NL(K+M) < KNM$, we can reduce the complexity of this matrix multiplication.
-\todoin{draw some figures explaining how this happens}
-\todoin{Luc says: If XW is not exactly equal XOP, how will you deal with this?}
-\subsection{SVD}
-Using SVD we can make this approximation. SVD decomposes the a matrix into 3 parts. 
-\todoin{Talk what SVD does, what are the decomposed matrices, what are the singular values and how they are relevant to the approximation of $\mathbf{W}$. Show your experiments and results from when you ran the experiments.} 
-\todoin{@Luc, In our last meeting I mentioned that Factorization is not possible, but I confused the terms. Actually, Weight Sharing is impossible, but Factorization is possible and I already have a method implemented. I was thinking of SVD as a Pruning operation, because I was only looking at it as pruning the weights that doesn't have importance in the singular value decomposition. That doesn't make sense. It should be classified as a Factorization Method.}
-\section{Other Methods}
-\subsection{Weight Sharing}
-Weight sharing assumes we have a limited set of weights, and when we are representing values, instead of representing the value itself, we represent the indices to weights. This operation is used in some papers successfully to reduce model size considerably. To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
-\todoin{give some examples here, you're saying some papers.}
-
-\subsection{ef-Operator}
-\todoin{tell why we didn't implement this}
-\subsection{Fischer Information Metric}
-\todoin{tell why we didn't implement this}
-
+\subsection{Batch Normalization}
 
 
 
