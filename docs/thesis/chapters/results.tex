@@ -12,9 +12,7 @@ Results
 \fi
 \section{Pruning}
 \subsection{Fully Connected Layers}
-To verify the validity of activation based pruning, we set up a basic experiment. We have implemented a neural network consisting of 2 inputs, $\mathbf{i} = (i_1, i_2)$, 1 fully connected layer with $n = 1000$ hidden nodes and 1 output, $o$. We have used ReLU \cite{nair2010rectified} activations on our hidden layer. For the sake of simplicity, we have defined the expected output $y$ as $y = i_1 + i_2$. We chose a simple problem so that we precisely know the most optimum neural network structure that would be able to perform this calculation. Which is the same network where the fully connected layer has one hidden node, all weights equal to $1$ and all biases equal to $0$.
-
-We have calculated the loss using mean squared error, and optimized it using Momentum Optimizer (learning rate $0.01$ and momentum $0.3$). Using $1.000.000$ samples, we trained the network with batch size $1000$. With these parameters, we ran a training session with 10 epochs and we have observed that the loss didn't converge to 0. Therefore, the model was unable to find the correct solution with this optimizer. 
+To verify the validity of activation based pruning, we ran some experiments with Fully Connected Summation model. 
 \subsubsection{Vanilla Pruning}
 First we have implemented the very basic idea of pruning unused activations. To do so, we defined training cycles based on the method defined in \cite{Hu:2016aa}. In each training cycle, 1) we have trained the model for some epochs, 2) we lock the weights, 3) feed the training data to the network and count the activations for each neuron in the hidden layer, 4) prune the neurons that have less than or equal to the activation threshold, 5) go back to step $1$ if some neurons were pruned, stop otherwise.
 
@@ -39,33 +37,7 @@ Since the solution we found is only resembling our result under some boundaries,
 
 \subsection{Convolutional Layers}
 
-To verify the validity of this method, we have implemented an auto encoder for MNIST Dataset \cite{lecun1998mnist}. MNIST contains $28 \times 28$ grayscale images of handwritten digits. The autoencoder consists of two parts. First part is the encoder. The encoder aims to reduce the dimensionality of input. The decoder aims to convert the encoded data back to it's original form.
-
-We have defined the auto encoder with two encoder blocks followed by two decoder blocks. Each encoding block is running convolutions with kernel size $3$, strides of $2$ and $SAME$ padding. Then we are adding bias to this result, following this we are applying batch normalization \cite{ioffe2015batch} and then ReLU activation \cite{nair2010rectified}. Each decoding block is running deconvolutions with kernel size $3$ and strides of $2$. Followed by adding bias, batch normalization and ReLU activations. 
-
-The information contained in one $28 \times 28 \times 1$ matrix is represented with $784$ units (floating points in this case). Therefore, a good auto-encoder should be capable of reducing this number when encoding. Similarly, converting the reduced matrix back to it's original form with minimal loss while decoding. The baseline auto-encoder we will compare our results is the non-encoding one given in table \ref{tab:mnist_baseline_encoder}.
-
-In our case, our encoder blocks are reducing the matrix width and height to half. Therefore, if they output $4$ times the number of input channels, they should represent the same information losslessly. Similarly our decoder blocks are doubling the matrix width and height. Therefore if they output a quarter of the number of input channels, they should be able to decode the encoded information perfectly. In Table \ref{tab:mnist_baseline_encoder} we have defined the layer output dimensions for that baseline auto-encoder.
-\begin{table}
-\begin{center}
-\begin{tabular}{ c | c }
- Block Name & Output Dimensions ($h \times w \times c$) \\
- \hline
- Input Image & $28 \times 28 \times 1$ \\
- Encoder 1 & $14 \times 14 \times 4$ \\  
- Encoder 2 & $7 \times 7 \times 16$ \\
- Decoder 1 & $14 \times 14 \times 4$ \\  
- Decoder 2 & $28 \times 28 \times 1$ 
-\end{tabular}
-\end{center}
-\caption{The baseline network that could perform lossless encoding in theory.}
-\label{tab:mnist_baseline_encoder}
-\end{table}
-
-To define the network to experiment on, we chose $[32, 64, 32]$ as the output channels of Encoder 1, Encoder 2 and Decoder 1 respectively.
-
-\todoin{This definition may not be good. check it.}
-
+To verify the validity of this method, we ran experiments with MNIST auto-encoder.
 \subsubsection{Vanilla Pruning}
 As we did in the Fully Connected Layers, we have pruned the connections that are not being activated. In these experiments we have seen that the network has been pruned insignificantly. After applying this method, we have achieved a network consisting of $[16, 64, 22]$ output channels for blocks Encoder 1, Encoder 2 and Decoder 1 respectively.
 
@@ -82,4 +54,6 @@ As we did in the Fully Connected Layers, we have pruned the connections that are
 \subsubsection{Regularized and Distorted Outilier Pruning}
 \todoin{explain your results when you combined these methods. }
 
-\section{}
+\section{Efficient Operations}
+\subsection{1-D Convolutions}
+
