@@ -49,7 +49,7 @@ l1_regularization = [(True, 0.00001), (True, 0.000001), (False, 0)]
 activation_count_regularization = [(True, 0.00001), (True, 0.000001), (False, 0)]
 increment_epochs_after_traning_cycle = [True, False]
 plot_figures = [False]
-initial_epochs = [2, 5, 10]
+initial_epochs = [2]
 seed = [1234, 127, 421]
 
 iterator = itertools.product(debug, prune_on_activation_count, distort_weights_and_kernel,
@@ -57,7 +57,10 @@ iterator = itertools.product(debug, prune_on_activation_count, distort_weights_a
                              activation_count_regularization, increment_epochs_after_traning_cycle,
                              plot_figures, initial_epochs, seed)
 
-total = 2 * 3 * 5 * 3 * 3 * 2 * 3 * 3
+total = len(debug) * len(prune_on_activation_count) * len(distort_weights_and_kernel) * \
+        len(prune_outliers_and_std_multiplier_or_threshold) * len(l1_regularization) * \
+        len(activation_count_regularization) * len(increment_epochs_after_traning_cycle) * \
+        len(plot_figures) * len(initial_epochs) * len(seed)
 count = 1
 for i in iterator:
     f = flags(i)
