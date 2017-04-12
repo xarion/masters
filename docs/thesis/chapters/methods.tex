@@ -47,6 +47,7 @@ We need to be talking about these.
 \fi
 
 \section{Quantization}
+
 \subsection{8-bit Quantization}
 \subsection{n-bit Quantization}
 \section{Pruning}
@@ -54,8 +55,8 @@ Pruning aims to reduce the number of operations by deleting the parameters that 
 To visualize these methods, and help with the explanation later, let's think of two fully connected layers, $\mathbf{l_1}$ and $\mathbf{l_2}$. $\mathbf{l_1}$ is the input of this operation and it consists of $N$ values, $\mathbf{l_1}=(l_{11}, l_{12}, ..., l_{1N})$. $\mathbf{l_2}$ is the output of this operation consists of $M$ values, $\mathbf{l_2}=(l_{21}, l_{22}, ..., l_{2M})$. Between these two layers, there is a weight matrix $W$ with size $N \times M$. The operation, that we want to optimize is, $\mathbf{l_2} = \mathbf{l_1}W$. To do so, we will look at 2 cases of pruning. One will be focusing on pruning individual weights, and the other will be focusing on removing unimportant rows and columns from $\mathbf{l_2}$, $\mathbf{l_1}$ and $W$. 
 \todoin{maybe explain in more detail and give examples of pruning algorithms here. (e.g. Optimal Brain Damage, Second order derivatives for network pruning: Optimal Brain Surgeon, Optimal Brain Surgeon and general network pruning, SEE Pruning Algorithms-a survey from R. Reed)}
 
-\subsection{Pruning Individual Weights}
-With this subcategory of pruning algorithms we want to optimize the number of floating point operations by removing some values from $W$. Theoretically, it makes sense to remove individual scalars from W, and exclude operations related to them. This would ideally reduce the required number of floating point operations. But in our library of our choice, Tensorflow, matrix multiplication implementation \texttt{tf.matmul} do not consider such a change. It takes two fixed size matrices, and does the computations using all of their values. Tensorflow also has another matrix multiplication operation, \texttt{tf.sparse\_tensor\_dense\_matmul}. This operation takes a sparse matrix and a dense matrix as inputs and outputs a dense matrix. To implement this method, we could convert W to a sparse tensor after pruning the weights. But, Tensorflow documentations explicitly state;
+\subsection{Pruning Weights}
+This subcategory of pruning algorithms try to optimize the number of floating point operations by removing some individual values from $W$. Theoretically, it could benefit the computational complexity to remove individual scalars from W, by not performing operations related to those weights. But practically, in Tensorflow, matrix multiplication on dense matrices uses all of the values of it's inputs. In contrary, sparse matrix multiplication takes a sparse matrix and a dense matrix as inputs and outputs a dense matrix. To implement this method, we could convert W to a sparse tensor after pruning the weights. But, Tensorflow documentations explicitly state;
 \begin{displayquote}
 \begin{itemize}
 \item Will the SparseTensor $A$ fit in memory if densified?
@@ -106,7 +107,7 @@ Convolution kernels could be decomposed into smaller operations. For example usi
 
 Normally convolution operations are defined 2 dimensional ($2D$). That is, kernel sizes are ($2D$). For example convolutions we have used in Section \ref{sec:activation-based-pruning-convolution} are $2D$, their kernel sizes are $3 \times 3$. With this method, we are aiming to construct a $N \times N$ convolution operation as a combination two convolution operations. The first convolution has kernel size $1 \times N$ and the following convolution has $N \times 1$, or vice versa. Looking back at the experiment we did in  Section \ref{sec:activation-based-pruning-convolution}, instead of applying one $3 \times 3$ convolution, we are talking about applying one $1 \times 3$ convolution followed by a $3 \times 1$ convolution. 
 
-The amount of speed up can be approximated using the number of floating point operations. A convolution operation can be seen as a matrix multiplication applied to consequent subsections of an image. To visualize this, let's assume that we have a convolution operation with kernel size $N$, input channels $K$ and output channels $L$. Assuming that we are applying that operation to a $N \times N$ image patch with $K$ channels, our operation can be simplified as multiplying this $N*N*K$ vector with $N*N*K \times L$ matrix. The number of floating point operations required to execute this operation are $N^2KL$. When composed as two $1D$ compositions, this operation will be represented with two $1D$ convolutions. First convolution is multiplying vector $N*K$ with matrix $N*K \times P$ and the second convolution is multiplying vector $N*P$ with matrix $N*P \times L$. As you can see we have introduced the variable $P$ as the intermediate output of the first convolution. Number of floating point operations required for these operations are, $NLP$ and $NPK$. And summing them up, we can say we need $NP(L + K)$ operations in total. To see if this decomposition is reducing the number of operations, we could basically try to define a $P$ satisfying $\frac{NP(L+K)}{N^2KL} < 1$. Therefore,
+The amount of speed up can be approximated using the number of floating point operations. A convolution operation can be seen as a matrix multiplication applied to consequent subsections of an image. To visualize this, let's assume that we have a convolution operation with kernel size $N$, input channels $K$ and output channels $L$. Assuming we are applying that operation to a $N \times N$ image patch with $K$ channels, our operation can be simplified as multiplying this $N*N*K$ vector with $N*N*K \times L$ matrix. The number of floating point operations required to execute this operation are $N^2KL$. When composed as two $1D$ compositions, this operation will be represented with two $1D$ convolutions. First convolution is multiplying vector $N*K$ with matrix $N*K \times P$ and the second convolution is multiplying vector $N*P$ with matrix $N*P \times L$. As you can see we have introduced the variable $P$ as the intermediate output of the first convolution. Number of floating point operations required for these operations are, $NLP$ and $NPK$. And summing them up, we can say we need $NP(L + K)$ operations in total. To see if this decomposition is reducing the number of operations, we could basically try to define a $P$ satisfying $\frac{NP(L+K)}{N^2KL} < 1$. Therefore,
 \begin{equation*}
 1 \leq P < \frac{NKL}{L+K}
 \end{equation*}
@@ -152,76 +153,6 @@ But the main contribution of \cite{He:2015aa} is not the bottleneck architecture
 \cite{He:2015aa} is also introducing a method called Residual Connections.
 \todoin{go into details of how this works using information given in \cite{He:2015aa} and \cite{DBLP:journals/corr/SzegedyIV16}}
 \subsection{Batch Normalization}
-
-
-\section{Baseline Models}
-\subsection{Fully Connected Summation}
-We have implemented a neural network consisting of 2 inputs, $\mathbf{i} = (i_1, i_2)$, 1 fully connected layer with $n = 1000$ hidden nodes and 1 output, $o$. We have used ReLU \cite{nair2010rectified} activations on our hidden layer. For the sake of simplicity, we have defined the expected output $y$ as $y = i_1 + i_2$. We chose a simple problem so that we precisely know the most optimum neural network structure that would be able to perform this calculation. Which is the same network where the fully connected layer has one hidden node, all weights equal to $1$ and all biases equal to $0$.
-
-We have calculated the loss using mean squared error, and optimized it using Momentum Optimizer (learning rate $0.01$ and momentum $0.3$). Using $1.000.000$ samples, we trained the network with batch size $1000$. With these parameters, we ran a training session with 10 epochs and we have observed that the loss didn't converge to 0. Therefore, the model was unable to find the correct solution with this optimizer. 
-
-\subsection{MNIST auto-encoder}
-we have implemented an auto encoder for MNIST Dataset \cite{lecun1998mnist}. MNIST contains $28 \times 28$ grayscale images of handwritten digits. The autoencoder consists of two parts. First part is the encoder. The encoder aims to reduce the dimensionality of input. The decoder aims to convert the encoded data back to it's original form.
-
-We have defined the auto encoder with two encoder blocks followed by two decoder blocks. Each encoding block is running convolutions with kernel size $3$, strides of $2$ and $SAME$ padding. Then we are adding bias to this result, following this we are applying batch normalization \cite{ioffe2015batch} and then ReLU activation \cite{nair2010rectified}. Each decoding block is running deconvolutions with kernel size $3$ and strides of $2$. Followed by adding bias, batch normalization and ReLU activations. 
-
-The information contained in one $28 \times 28 \times 1$ matrix is represented with $784$ units (floating points in this case). Therefore, a good auto-encoder should be capable of reducing this number when encoding. Similarly, converting the reduced matrix back to it's original form with minimal loss while decoding. The baseline auto-encoder we will compare our results is the non-encoding one given in table \ref{tab:mnist_baseline_encoder}.
-
-In our case, our encoder blocks are reducing the matrix width and height to half. Therefore, if they output $4$ times the number of input channels, they should represent the same information losslessly. Similarly our decoder blocks are doubling the matrix width and height. Therefore if they output a quarter of the number of input channels, they should be able to decode the encoded information perfectly. In Table \ref{tab:mnist_baseline_encoder} we have defined the layer output dimensions for that baseline auto-encoder.
-\begin{table}
-\begin{center}
-\begin{tabular}{ c | c }
- Block Name & Output Dimensions ($h \times w \times c$) \\
- \hline
- Input Image & $28 \times 28 \times 1$ \\
- Encoder 1 & $14 \times 14 \times 4$ \\  
- Encoder 2 & $7 \times 7 \times 16$ \\
- Decoder 1 & $14 \times 14 \times 4$ \\  
- Decoder 2 & $28 \times 28 \times 1$ 
-\end{tabular}
-\end{center}
-\caption{The baseline network that could perform lossless encoding in theory.}
-\label{tab:mnist_baseline_encoder}
-\end{table}
-
-To define the network to experiment on, we chose $[32, 64, 32]$ as the output channels of Encoder 1, Encoder 2 and Decoder 1 respectively.
-
-\todoin{This definition may not be good. check it.}
-
-\subsection{MNIST Classifier}
-This model is originally consisting of three Convolutional Layers and one Fully Connected layer. This configuration is defined in Table \ref{tab:nxn-mnist-classifier}. By converting the 
-\todoin{This chapter is finishing here. fix that.}
-\begin{table}
-\centering
-\begin{tabular}{l | c | c}
-Layer & Configuration & Output\\
-\hline
-Input Image & & $28 \times 28 \times 1$ \\
-\hline
-Convolution & \small $N=5, \text{strides}=1, \text{padding}=SAME$ & $28 \times 28 \times 32$ \\
-Add Bias & & $28 \times 28 \times 32$ \\
-ReLU & & $28 \times 28 \times 32$ \\
-Max Pool & size=$ 2 \times 2$ & $14 \times 14 \times 32$ \\
-\hline
-Convolution & \small $N=5, \text{strides}=1, \text{padding}=SAME$ & $14 \times 14 \times 64$ \\
-Add Bias & & $14 \times 14 \times 64$ \\
-ReLU & & $14 \times 14 \times 64$ \\
-Max Pool & size=$ 2 \times 2$ & $7 \times 7 \times 64$ \\
-\hline
-Convolution & \small $N=7, \text{strides}=1, \text{padding}=VALID$ & $1 \times 128$ \\
-Add Bias & & $ 1 \times 128$ \\
-ReLU & & $ 1 \times 128$ \\
-\hline
-FC Layer &  & $1 \times 10$ \\
-Add Bias & & $1 \times 10$ 
-\end{tabular}
-\caption{Network configuration for MNIST Classifier, output of every row is applied as the input of next.}
-\label{tab:nxn-mnist-classifier}
-\end{table}
-
-\subsection{CIFAR-10 Classifier}
-\todoin{Explain cifar-10 classifier}
-
 
 
 
