@@ -47,7 +47,7 @@ from six.moves import urllib
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 128,
+tf.app.flags.DEFINE_integer('batch_size', 32,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_string('data_dir', './cifar10_data',
                            """Path to the CIFAR-10 data directory.""")
@@ -210,13 +210,13 @@ def inference(images):
     with tf.variable_scope('conv1') as scope:
         depthwise_filter = _variable_with_weight_decay('depthwise_filter_weights_1',
                                                        shape=[5, 5, 3, 6],
-                                                       stddev=5e-2,
+                                                       stddev=0.1,
                                                        wd=None)
         pointwise_filter = _variable_with_weight_decay('pointwise_filter_weights_1',
                                                        shape=[1, 1, 18, 24],
-                                                       stddev=5e-2,
+                                                       stddev=0.1,
                                                        wd=None)
-        biases_1 = _variable_on_cpu('biases_1', [24], tf.constant_initializer(0.0))
+        biases_1 = _variable_on_cpu('biases_1', [24], tf.truncated_normal_initializer(stddev=0.1))
 
         conv_1_1 = tf.nn.separable_conv2d(images, depthwise_filter, pointwise_filter, [1, 1, 1, 1], padding='SAME')
         conv_1_1 = tf.nn.bias_add(conv_1_1, biases_1)
@@ -233,13 +233,13 @@ def inference(images):
     with tf.variable_scope('conv2') as scope:
         depthwise_filter = _variable_with_weight_decay('depthwise_filter_weights_2',
                                                        shape=[5, 5, 24, 4],
-                                                       stddev=5e-2,
+                                                       stddev=0.1,
                                                        wd=None)
         pointwise_filter = _variable_with_weight_decay('pointwise_filter_weights_2',
                                                        shape=[1, 1, 96, 128],
-                                                       stddev=5e-2,
+                                                       stddev=0.1,
                                                        wd=None)
-        biases_1 = _variable_on_cpu('biases_1', [128], tf.constant_initializer(0.0))
+        biases_1 = _variable_on_cpu('biases_1', [128], tf.truncated_normal_initializer(stddev=0.1))
 
         conv_2_1 = tf.nn.separable_conv2d(pool_1, depthwise_filter, pointwise_filter, [1, 1, 1, 1], padding='SAME')
         conv_2_1 = tf.nn.bias_add(conv_2_1, biases_1)
@@ -258,17 +258,17 @@ def inference(images):
         reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
         dim = reshape.get_shape()[1].value
         weights = _variable_with_weight_decay('weights', shape=[dim, 384],
-                                              stddev=0.04, wd=None)
-        biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
-        local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
+                                              stddev=0.1, wd=None)
+        biases = _variable_on_cpu('biases', [384], tf.truncated_normal_initializer(stddev=0.1))
+        local3 = tf.nn.relu(batch_normalization(tf.matmul(reshape, weights) + biases), name=scope.name)
         _activation_summary(local3)
 
     # local4
     with tf.variable_scope('local4') as scope:
         weights = _variable_with_weight_decay('weights', shape=[384, 192],
-                                              stddev=0.04, wd=None)
-        biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
-        local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
+                                              stddev=0.1, wd=None)
+        biases = _variable_on_cpu('biases', [192], tf.truncated_normal_initializer(stddev=0.1))
+        local4 = tf.nn.relu(batch_normalization(tf.matmul(local3, weights) + biases), name=scope.name)
         _activation_summary(local4)
 
     # linear layer(WX + b),
@@ -277,9 +277,9 @@ def inference(images):
     # and performs the softmax internally for efficiency.
     with tf.variable_scope('softmax_linear') as scope:
         weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
-                                              stddev=1 / 192.0, wd=None)
+                                              stddev=0.1, wd=None)
         biases = _variable_on_cpu('biases', [NUM_CLASSES],
-                                  tf.constant_initializer(0.0))
+                                  tf.truncated_normal_initializer(stddev=0.1))
         softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
         _activation_summary(softmax_linear)
 
