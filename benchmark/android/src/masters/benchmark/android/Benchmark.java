@@ -24,7 +24,7 @@ public class Benchmark {
   private int numberOfRuns;
   private long runForMilliseconds;
   // Pre-allocated buffers.
-
+  private String modelName;
   private float[] floatValues;
   private float[] outputs;
 
@@ -60,6 +60,7 @@ public class Benchmark {
     this.runForMilliseconds = config.getDurationMilliseconds();
 
     String modelFileName = config.getModelFileName();
+    this.modelName = config.getModelName();
     this.inferenceInterface = new TensorFlowInferenceInterface();
     return inferenceInterface.initializeTensorFlow(assetManager, modelFileName);
   }
@@ -68,6 +69,8 @@ public class Benchmark {
    * Runs a benchmark for given configuration file.
    */
   public void benchmarkModel(BenchmarkRecord benchmarkRecord) {
+    benchmarkRecord.setModelName(this.modelName);
+
     Trace.beginSection("benchmark");
     benchmarkRecord.initialize(runForMilliseconds);
     System.out.println("RUN FOR MILLISECONDS: " + runForMilliseconds);

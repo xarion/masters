@@ -4,10 +4,14 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 
 public class BenchmarkActivity extends Activity {
@@ -53,6 +57,7 @@ public class BenchmarkActivity extends Activity {
               resultTextView.setText(benchmarkRecord.toString());
             }
           });
+          writeLog(benchmarkRecord);
         }
       });
     } catch (IOException e) {
@@ -65,4 +70,21 @@ public class BenchmarkActivity extends Activity {
     unregisterBatteryReceiver();
     super.onDestroy();
   }
+
+  private void writeLog(BenchmarkRecord benchmarkRecord) {
+
+    File file = new File("/data/data/masters.benchmark.android/" + benchmarkRecord.getModelName() + ".log");
+
+    try {
+//      file.createNewFile();
+      FileOutputStream f = new FileOutputStream(file);
+      f.write(benchmarkRecord.toString().getBytes());
+      f.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
 }

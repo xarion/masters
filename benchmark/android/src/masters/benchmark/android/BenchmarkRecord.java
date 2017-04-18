@@ -5,6 +5,7 @@ import java.util.Locale;
 
 public class BenchmarkRecord {
 
+  private String modelName;
   private long startMilliseconds;
   private long endMilliseconds;
 
@@ -65,7 +66,7 @@ public class BenchmarkRecord {
   @Override
   public String toString() {
     return String.format(Locale.US,
-        "BenchmarkResults:\n" +
+        "BenchmarkResults: %s\n" +
             "total time=%d ms\n" +
             "inferences=%d\n" +
             "batteryScale=%d\n" +
@@ -73,6 +74,7 @@ public class BenchmarkRecord {
             "finalBatteryLevel=%d\n" +
             "initialTemperature=%.2f\n" +
             "finalTemperature=%.2f\n",
+        this.modelName,
         this.endMilliseconds - this.startMilliseconds,
         this.numberOfInferences,
         this.batteryScale,
@@ -82,4 +84,11 @@ public class BenchmarkRecord {
         this.finalAmbientTemperature);
   }
 
+  public String getModelName() {
+    return modelName;
+  }
+
+  public void setModelName(String modelName) {
+    this.modelName = modelName;
+  }
 }
