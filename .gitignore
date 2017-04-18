@@ -93,7 +93,7 @@ logs/*
 data/
 summaries/
 checkpoints/
-models/
+benchmark/models/
 
 benchmark/android/gradle/
 benchmark/android/gradlew
