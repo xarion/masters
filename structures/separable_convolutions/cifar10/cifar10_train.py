@@ -106,6 +106,7 @@ def train():
         hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
                tf.train.NanTensorHook(loss),
                _LoggerHook()],
+        save_checkpoint_secs=120,
         config=tf.ConfigProto(
             log_device_placement=FLAGS.log_device_placement)) as mon_sess:
       while not mon_sess.should_stop():
@@ -115,9 +116,9 @@ def train():
 def main(argv=None):  # pylint: disable=unused-argument
   tf.set_random_seed(125)
   cifar10.maybe_download_and_extract()
-  if tf.gfile.Exists(FLAGS.train_dir):
-    tf.gfile.DeleteRecursively(FLAGS.train_dir)
-  tf.gfile.MakeDirs(FLAGS.train_dir)
+  # if tf.gfile.Exists(FLAGS.train_dir):
+  #   tf.gfile.DeleteRecursively(FLAGS.train_dir)
+  # tf.gfile.MakeDirs(FLAGS.train_dir)
   train()
 
 
