@@ -81,7 +81,7 @@ In theory, convolution operation is a matrix multiplication applied on a sliding
 \subsection{Separable Convolutions}
 As the name suggests, these operations separate the standard convolution operation into two parts. These parts are called Depthwise convolutions and Pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. Pointwise convolution correlates these output channels with each other, or in other words mixes them, by applying a matrix multiplication. For example, let's assume we have an input with 3 channels, applying a Depthwise convolution with 4 filters to that, we would get 12 output channels. Then applying a Pointwise convolution to that, we correlate these 12 output channels to create new output channels. 
 
-To describe the complexity of this operation, let's assume that we have a separable convolution with kernel size $N$, input channels $K$, depthwise filters $I$ and output channels $L$. First operation will be applying $L$ filters with size $N \times N$ to $K$ input channels, one by one. The number of operations we need for this operation is, $IKN^2$. Second operation will be multiplying $1 \times I$ output with $I \times L$ correlation matrix, requiring $IL$ floating point operations. In total we need $I(KN^2+L)$ operations. 
+To describe the complexity of this operation, let's assume that we have a separable convolution with kernel size $N$, input channels $K$, depthwise filters $I$ and output channels $L$. First operation will be applying $L$ filters with size $N \times N$ to $K$ input channels, one by one. The number of operations we need for this operation is, $IKN^2$. Second operation will be multiplying $1 \times IK$ output with $IK \times L$ correlation matrix, requiring $IKL$ floating point operations. In total we need $IK(N^2+L)$ operations. 
 \subsection{ef-operator}
 
 \section{Factorization}
@@ -128,6 +128,7 @@ To show the validity of this method, we have conducted two experiments.
 \begin{tabular}{ | c | c | c | c | }
 \hline
 layer name			& output size 					& 34-layer																& 50-layer																			\\ \hline
+input image			& $224 \times 224$				& \multicolumn{2}{c|}{}																																	\\ \hline
 conv1				& $112 \times112$				& \multicolumn{2}{c|}{$ 7 \times 7$, $64$, stride $2$}																												\\ \hline
 \multirow{2}{*}{conv2\_x}	& \multirow{2}{*}{$56 \times 56$} 	& \multicolumn{2}{c|}{$3 \times 3$ max pool, stride $2$}																											\\ \cline{3-4} 
 					&							& $\begin{bmatrix} 3 \times 3, &   64 \\ 3 \times 3, &   64 \end{bmatrix} \times 3 $		& $\begin{bmatrix}1 \times 1, & 64 \\ 3 \times 3, & 64 \\ 1 \times 1, & 256 \end{bmatrix}^{} \times 3 $ 		\\ \hline
@@ -153,7 +154,13 @@ But the main contribution of \cite{He:2015aa} is not the bottleneck architecture
 \cite{He:2015aa} is also introducing a method called Residual Connections.
 \todoin{go into details of how this works using information given in \cite{He:2015aa} and \cite{DBLP:journals/corr/SzegedyIV16}}
 \subsection{Batch Normalization}
-
+\begin{equation}
+\begin{split}
+V \approx& HW \\
+IV \approx& IHW\\
+I \in& \mathbb{R}^{l \times m}
+\end{split}
+\end{equation}
 
 
 
