@@ -1,9 +1,9 @@
-from model import Graph
+from model import SeparableResnet
 import tensorflow as tf
 
 with tf.Session() as session:
     input_placeholder = tf.placeholder(dtype=tf.float32, shape=(None, 224, 224, 3))
-    graph = Graph(input_placeholder)
+    graph = SeparableResnet(input_placeholder)
 
     session.run(tf.variables_initializer(tf.global_variables()))
     graph_def = tf.graph_util.convert_variables_to_constants(
