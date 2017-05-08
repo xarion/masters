@@ -21,38 +21,38 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_boolean('debugging', True,
                             """Whether to show detailed log messages.""")
 
-tf.app.flags.DEFINE_boolean('prune_on_activation_count', True,
+tf.app.flags.DEFINE_boolean('prune_on_activation_count', False,
                             """Whether to prune with activation counts or activation values.""")
 
 tf.app.flags.DEFINE_boolean('distort_weights', True,
                             """Whether to distort weights after pruning""")
 
-tf.app.flags.DEFINE_boolean('distort_by_kernel', True,
+tf.app.flags.DEFINE_boolean('distort_by_kernel', False,
                             """Whether to apply distort each N by N kernel with one value, 
                             or apply separate distortions to every value""")
 
 tf.app.flags.DEFINE_boolean('prune_outliers', True,
                             """Whether to prune the outliers or by activation threshold""")
 
-tf.app.flags.DEFINE_boolean('l1_regularization', True,
+tf.app.flags.DEFINE_boolean('l1_regularization', False,
                             """Whether to apply L1 Regularization or not""")
 
-tf.app.flags.DEFINE_boolean('activation_count_regularization', True,
+tf.app.flags.DEFINE_boolean('activation_count_regularization', False,
                             """Whether to apply "activation count regularization" or not""")
 
-tf.app.flags.DEFINE_boolean('increment_epochs_after_traning_cycle', True,
+tf.app.flags.DEFINE_boolean('increment_epochs_after_traning_cycle', False,
                             """Whether to prune the outliers or by activation threshold""")
 
-tf.app.flags.DEFINE_boolean('plot_figures', False,
+tf.app.flags.DEFINE_boolean('plot_figures', True,
                             """Whether to prune the outliers or by activation threshold""")
 
 tf.app.flags.DEFINE_integer('activation_threshold', 0,
                             """Threshold to be used while determining irrelevant hidden neurons.""")
 
-tf.app.flags.DEFINE_integer('std_multiplier', 2,
+tf.app.flags.DEFINE_integer('std_multiplier', 4,
                             """Multiplier of standard deviation while determining the outliers.""")
 
-tf.app.flags.DEFINE_integer('initial_epochs', 2,
+tf.app.flags.DEFINE_integer('initial_epochs', 1,
                             """Number of Epochs per training cycle""")
 
 tf.app.flags.DEFINE_integer('seed', 1234,
@@ -80,10 +80,10 @@ def main(FLAGS):
     SEED = FLAGS.seed
     np.random.seed(SEED)
 
-    LEARNING_RATE = 0.01
+    LEARNING_RATE = 0.005
     EPOCHS = FLAGS.initial_epochs
     BATCH_SIZE = 32
-    DISPLAY_STEP = 5
+    DISPLAY_STEP = 10
     EXAMPLES_TO_SHOW = 10
 
     NODE_COUNT_LAYER_1 = 32  # 1st layer num features // encoder
@@ -251,8 +251,8 @@ def main(FLAGS):
             regularized_cost = cost + cost_regularizers
 
         with tf.name_scope("optimizer"):
-            optimizer = tf.train.RMSPropOptimizer(learning_rate=LEARNING_RATE, momentum=0.3).minimize(regularized_cost)
-            # optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(regularized_cost)
+            # optimizer = tf.train.RMSPropOptimizer(learning_rate=LEARNING_RATE, momentum=0.9).minimize(regularized_cost)
+            optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(regularized_cost)
 
         init = tf.global_variables_initializer()
 
@@ -266,10 +266,8 @@ def main(FLAGS):
                 for i in range(total_batch):
                     batch_xs, batch_ys = mnist.train.next_batch(BATCH_SIZE)
                     _, c = sess.run([optimizer, regularized_cost], feed_dict={X: batch_xs})
-                    print("cost=", "{:.9f}".format(c), "batch=%d/%d" % (i, total_batch)) if DEBUG else None
-                if epoch % DISPLAY_STEP == 0:
-                    print("Epoch:", '%04d' % (epoch + 1),
-                          "cost=", "{:.9f}".format(c)) if DEBUG else None
+                    if i % DISPLAY_STEP == 0:
+                        print("cost=", "{:.9f}".format(c), "batch=%d/%d" % (i, total_batch)) if DEBUG else None
 
             training_end_time = datetime.now()
             duration = (training_end_time - training_start_time).seconds
