@@ -1,9 +1,9 @@
 import tensorflow as tf
+from tensorflow.contrib.layers import xavier_initializer
 
 
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
+def weight_variable(name, shape):
+    return tf.get_variable(name, shape=shape, initializer=xavier_initializer())
 
 
 def relu(input_layer):
@@ -11,50 +11,59 @@ def relu(input_layer):
 
 
 def conv2d(input_layer, filter_size, input_channels, output_channels, strides=1):
-    weights = weight_variable([filter_size, filter_size, input_channels, output_channels])
+    weights = weight_variable("conv_weights", [filter_size, filter_size, input_channels, output_channels])
     logits = tf.nn.conv2d(input_layer, weights, strides=[1, strides, strides, 1], padding="SAME")
     return batch_normalization(logits)
 
 
-def separable_conv2d(input_layer, filter_size, input_channels, depthwise_multiplier=1, pointwise_multiplier=4):
+def separable_conv2d(input_layer, filter_size, input_channels, depthwise_multiplier=1, pointwise_multiplier=1):
     intermediate_channels = input_channels * depthwise_multiplier
-    depthwise_filter = weight_variable([1, filter_size, input_channels, depthwise_multiplier])
+    depthwise_filter = weight_variable("depthwise_filter", [filter_size, filter_size, input_channels, depthwise_multiplier])
 
     output_channels = input_channels * pointwise_multiplier
-    separable_filter = weight_variable([1, 1, intermediate_channels, output_channels])
+    pointwise_filter = weight_variable("pointwise_filter", [1, 1, intermediate_channels, output_channels])
 
-    return batch_normalization(
-        tf.nn.separable_conv2d(input_layer, depthwise_filter, separable_filter,
-                               strides=[1, 1, 1, 1], padding="SAME"))
+    depthwise_results = tf.nn.depthwise_conv2d_native(input=input_layer,
+                                                      filter=depthwise_filter,
+                                                      strides=[1, 1, 1, 1],
+                                                      padding="SAME",
+                                                      name="depthwise_2")
+    pointwise_results = tf.nn.conv2d(depthwise_results,
+                                     pointwise_filter,
+                                     [1, 1, 1, 1],
+                                     padding="VALID")
+
+    return batch_normalization(pointwise_results)
 
 
 def residual_bottleneck_separable(input_layer, input_channels, downscaled_outputs, upscaled_outputs, strides=1):
     if input_channels != upscaled_outputs or strides != 1:
-        residual = conv2d(input_layer,
-                          filter_size=1,
-                          input_channels=input_channels,
-                          output_channels=upscaled_outputs,
-                          strides=strides)
+        with tf.variable_scope("upscale_residual"):
+            residual = conv2d(input_layer,
+                              filter_size=1,
+                              input_channels=input_channels,
+                              output_channels=upscaled_outputs,
+                              strides=strides)
     else:
         residual = input_layer
 
     activated_input = relu(residual)
-
-    downscaled_features = relu(conv2d(activated_input,
-                                      filter_size=1,
-                                      input_channels=upscaled_outputs,
-                                      output_channels=downscaled_outputs))
-
-    processed_features = relu(separable_conv2d(downscaled_features,
-                                               filter_size=3,
-                                               input_channels=downscaled_outputs,
-                                               depthwise_multiplier=1,
-                                               pointwise_multiplier=1))
-
-    upscaled_features = conv2d(processed_features,
-                               filter_size=1,
-                               input_channels=downscaled_outputs,
-                               output_channels=upscaled_outputs)
+    with tf.variable_scope("bottleneck_downscale"):
+        downscaled_features = relu(conv2d(activated_input,
+                                          filter_size=1,
+                                          input_channels=upscaled_outputs,
+                                          output_channels=downscaled_outputs))
+    with tf.variable_scope("bottleneck_convolution"):
+        processed_features = relu(separable_conv2d(downscaled_features,
+                                                   filter_size=3,
+                                                   input_channels=downscaled_outputs,
+                                                   depthwise_multiplier=1,
+                                                   pointwise_multiplier=1))
+    with tf.variable_scope("bottleneck_upscale"):
+        upscaled_features = conv2d(processed_features,
+                                   filter_size=1,
+                                   input_channels=downscaled_outputs,
+                                   output_channels=upscaled_outputs)
 
     return tf.add(upscaled_features, residual)
 
@@ -69,11 +78,16 @@ def batch_normalization(input_layer):
 
 
 def add_bias(layer, number_of_channels):
-    bias = weight_variable([number_of_channels])
+    bias = weight_variable("bias", [number_of_channels])
     return tf.nn.bias_add(layer, bias)
 
 
-def fc(input_layer, input_channels, output_channels):
-    weights = weight_variable([input_channels, output_channels])
+def normalized_fc(input_layer, input_channels, output_channels):
+    weights = weight_variable("fc_weights", [input_channels, output_channels])
+    return batch_normalization(tf.matmul(input_layer, weights))
+
+
+def biased_fc(input_layer, input_channels, output_channels):
+    weights = weight_variable("fc_weights", [input_channels, output_channels])
     pre_bias = tf.matmul(input_layer, weights)
     return add_bias(pre_bias, output_channels)
