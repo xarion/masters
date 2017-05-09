@@ -120,3 +120,4 @@ MNIST_data
 cifar10_data
 
 *train_logs*
+test_checkpoint_folder
