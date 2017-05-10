@@ -107,13 +107,13 @@ class SeparableResnet:
         return logits
 
     def training(self):
-        with tf.name_scope('loss'):
+        with tf.variable_scope('loss'):
             self.one_hot_truth = tf.squeeze(tf.one_hot(self.label, 1000, on_value=0.9, off_value=0.0001))
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.one_hot_truth)
             self.loss = tf.reduce_mean(cross_entropy)
             tf.add_to_collection('losses', self.loss)
 
-        with tf.name_scope('train'):
+        with tf.variable_scope('train'):
             tf.summary.scalar('loss_total', self.loss)
             if self.learning_rate is not None:
                 optimizer = tf.train.AdamOptimizer(self.learning_rate)
@@ -123,7 +123,7 @@ class SeparableResnet:
             self.train_step = optimizer.minimize(self.loss, global_step=self.global_step)
 
     def evaluation(self):
-        with tf.name_scope('accuracy'):
+        with tf.variable_scope('accuracy'):
             correct_prediction = tf.equal(tf.cast(tf.argmax(self.logits, 1), tf.int32), self.label)
             correct_prediction_2 = tf.nn.in_top_k(self.logits, self.label, 5, name=None)
             self.top_1_accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
