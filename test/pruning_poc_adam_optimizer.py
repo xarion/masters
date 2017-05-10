@@ -9,6 +9,9 @@ CHECKPOINT = CHECKPOINT_FOLDER + "/test_checkpoint"
 
 class LoadPrunedModelAdam(unittest.TestCase):
     def test_load_pruned_weights_with_adam_optimizer(self):
+
+        #  if we store the pruned shapes, we can potentially use this information
+        #  when we're recreating these variables in the future.
         known_variable_shapes = {}
 
         def get_model():
