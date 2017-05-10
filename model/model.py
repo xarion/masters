@@ -1,11 +1,12 @@
 import tensorflow as tf
 
-from blocks import conv2d, relu, residual_bottleneck_separable, normalized_fc, biased_fc
+from blocks import Blocks
+from graph_meta import GraphMeta
 
 
 class SeparableResnet:
-    def __init__(self, learning_rate=None, input_tensor=None, label_tensor=None):
-
+    def __init__(self, learning_rate=None, input_tensor=None, label_tensor=None, graph_meta=None):
+        self.blocks = Blocks(graph_meta)
         if input_tensor is None:
             self.input = tf.placeholder(dtype=tf.float32, shape=(None, 224, 224, 3))
         else:
@@ -41,8 +42,12 @@ class SeparableResnet:
     def inference(self, preprocessed_input):
 
         with tf.variable_scope("conv_1"):
-            conv_1 = conv2d(preprocessed_input, filter_size=7, input_channels=3, output_channels=64, strides=2)
-            relu_1 = relu(conv_1)
+            conv_1 = self.blocks.conv2d(preprocessed_input,
+                                        filter_size=7,
+                                        input_channels=3,
+                                        output_channels=64,
+                                        strides=2)
+            relu_1 = self.blocks.relu(conv_1)
 
         with tf.variable_scope("max_pool_1"):
             max_pool_1 = tf.nn.max_pool(relu_1, [1, 3, 3, 1], [1, 2, 2, 1], padding="SAME")
@@ -52,38 +57,38 @@ class SeparableResnet:
         input_channels = 64
         for residual_block in range(1, 4):
             with tf.variable_scope("conv_2_%d" % residual_block):
-                residual_layer = residual_bottleneck_separable(residual_layer,
-                                                               input_channels=input_channels,
-                                                               downscaled_outputs=64,
-                                                               upscaled_outputs=256,
-                                                               strides=1)
+                residual_layer = self.blocks.residual_bottleneck_separable(residual_layer,
+                                                                           input_channels=input_channels,
+                                                                           downscaled_outputs=64,
+                                                                           upscaled_outputs=256,
+                                                                           strides=1)
             input_channels = 256
 
         for residual_block in range(1, 5):
             with tf.variable_scope("conv_3_%d" % residual_block):
-                residual_layer = residual_bottleneck_separable(residual_layer,
-                                                               input_channels=input_channels,
-                                                               downscaled_outputs=128,
-                                                               upscaled_outputs=512,
-                                                               strides=2 if residual_block == 1 else 1)
+                residual_layer = self.blocks.residual_bottleneck_separable(residual_layer,
+                                                                           input_channels=input_channels,
+                                                                           downscaled_outputs=128,
+                                                                           upscaled_outputs=512,
+                                                                           strides=2 if residual_block == 1 else 1)
             input_channels = 512
 
         for residual_block in range(1, 7):
             with tf.variable_scope("conv_4_%d" % residual_block):
-                residual_layer = residual_bottleneck_separable(residual_layer,
-                                                               input_channels=input_channels,
-                                                               downscaled_outputs=256,
-                                                               upscaled_outputs=1024,
-                                                               strides=2 if residual_block == 1 else 1)
+                residual_layer = self.blocks.residual_bottleneck_separable(residual_layer,
+                                                                           input_channels=input_channels,
+                                                                           downscaled_outputs=256,
+                                                                           upscaled_outputs=1024,
+                                                                           strides=2 if residual_block == 1 else 1)
             input_channels = 1024
 
         for residual_block in range(1, 4):
             with tf.variable_scope("conv_5_%d" % residual_block):
-                residual_layer = residual_bottleneck_separable(residual_layer,
-                                                               input_channels=input_channels,
-                                                               downscaled_outputs=512,
-                                                               upscaled_outputs=2048,
-                                                               strides=2 if residual_block == 1 else 1)
+                residual_layer = self.blocks.residual_bottleneck_separable(residual_layer,
+                                                                           input_channels=input_channels,
+                                                                           downscaled_outputs=512,
+                                                                           upscaled_outputs=2048,
+                                                                           strides=2 if residual_block == 1 else 1)
             input_channels = 2048
 
         with tf.variable_scope("fully_connected_1"):
@@ -92,9 +97,13 @@ class SeparableResnet:
             avg_pool = tf.squeeze(avg_pool, axis=[1, 2])
             self.freeze_layer = avg_pool
 
-            fc1 = normalized_fc(avg_pool, input_channels=2048, output_channels=1000)
+            fc1 = self.blocks.normalized_fc(avg_pool,
+                                            input_channels=2048,
+                                            output_channels=1000)
         with tf.variable_scope("output"):
-            logits = biased_fc(fc1, input_channels=1000, output_channels=1000)
+            logits = self.blocks.biased_fc(fc1,
+                                           input_channels=1000,
+                                           output_channels=1000)
         return logits
 
     def training(self):
