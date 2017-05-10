@@ -116,7 +116,7 @@ class SeparableResnet:
         with tf.variable_scope('train'):
             tf.summary.scalar('loss_total', self.loss)
             if self.learning_rate is not None:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                optimizer = tf.train.AdamOptimizer(self.learning_rate, epsilon=1.0)
             else:
                 optimizer = tf.train.AdamOptimizer()
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
