@@ -36,8 +36,8 @@ class SeparableResnet:
         self.pop_vars = tf.Variable(0)
 
     def pre_process_input(self):
-        norm = tf.div(self.input, tf.constant(255.0), 'norm')
-        return tf.subtract(norm, tf.constant(0.5), 'trans')
+        norm = tf.div(self.input, tf.constant(255.0/2), 'norm')
+        return tf.subtract(norm, tf.constant(1.), 'trans')
 
     def inference(self, preprocessed_input):
 
