@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib.layers import xavier_initializer
+from tensorflow.contrib import layers
 
 
 class Blocks:
@@ -18,7 +18,7 @@ class Blocks:
     def weight_variable(self, name, shape):
         return tf.get_variable(name,
                                shape=shape,
-                               initializer=xavier_initializer(),
+                               initializer=layers.xavier_initializer(),
                                custom_getter=self.get_variable_with_shape_by_graph_meta_getter)
 
     def relu(self, input_layer):
@@ -83,22 +83,23 @@ class Blocks:
         return tf.add(upscaled_features, residual)
 
     def batch_normalization(self, input_layer):
-        return tf.nn.batch_normalization(input_layer,
-                                         mean=tf.Variable(0, dtype=tf.float32),
-                                         variance=tf.Variable(1, dtype=tf.float32),
-                                         offset=tf.Variable(0, dtype=tf.float32),
-                                         scale=tf.Variable(1, dtype=tf.float32),
-                                         variance_epsilon=tf.Variable(1e-8, dtype=tf.float32))
+        return layers.batch_norm(input_layer, fused=True, decay=1.0)
 
     def add_bias(self, layer, number_of_channels):
         bias = self.weight_variable("bias", [number_of_channels])
         return tf.nn.bias_add(layer, bias)
 
-    def normalized_fc(self, input_layer, input_channels, output_channels):
+    def fc(self, input_layer, input_channels, output_channels):
         weights = self.weight_variable("fc_weights", [input_channels, output_channels])
-        return self.batch_normalization(tf.matmul(input_layer, weights))
+        return tf.matmul(input_layer, weights)
+
+    def normalized_fc(self, input_layer, input_channels, output_channels):
+        fc = self.fc(input_layer, input_channels, output_channels)
+        fc = tf.expand_dims(fc, 1)
+        fc = tf.expand_dims(fc, 1)
+        bn = self.batch_normalization(fc)
+        return tf.squeeze(bn, axis=[1, 2])
 
     def biased_fc(self, input_layer, input_channels, output_channels):
-        weights = self.weight_variable("fc_weights", [input_channels, output_channels])
-        pre_bias = tf.matmul(input_layer, weights)
+        pre_bias = self.fc(input_layer, input_channels, output_channels)
         return self.add_bias(pre_bias, output_channels)
