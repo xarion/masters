@@ -96,10 +96,10 @@ class SeparableResnet:
 
             avg_pool = tf.squeeze(avg_pool, axis=[1, 2])
             self.freeze_layer = avg_pool
-
-            fc1 = self.blocks.normalized_fc(avg_pool,
-                                            input_channels=2048,
-                                            output_channels=1000)
+            avg_pool = self.blocks.relu(avg_pool)
+            fc1 = self.blocks.relu(self.blocks.normalized_fc(avg_pool,
+                                                             input_channels=2048,
+                                                             output_channels=1000))
         with tf.variable_scope("output"):
             logits = self.blocks.biased_fc(fc1,
                                            input_channels=1000,
