@@ -62,12 +62,12 @@ class Blocks:
         else:
             residual = input_layer
 
-        activated_input = self.relu(residual)
         with tf.variable_scope("bottleneck_downscale"):
-            downscaled_features = self.relu(self.conv2d(activated_input,
+            downscaled_features = self.relu(self.conv2d(input_layer,
                                                         filter_size=1,
-                                                        input_channels=upscaled_outputs,
-                                                        output_channels=downscaled_outputs))
+                                                        input_channels=input_channels,
+                                                        output_channels=downscaled_outputs,
+                                                        strides=strides))
         with tf.variable_scope("bottleneck_convolution"):
             processed_features = self.relu(self.separable_conv2d(downscaled_features,
                                                                  filter_size=3,
@@ -80,10 +80,10 @@ class Blocks:
                                             input_channels=downscaled_outputs,
                                             output_channels=upscaled_outputs)
 
-        return tf.add(upscaled_features, residual)
+        return self.relu(tf.add(upscaled_features, residual))
 
     def batch_normalization(self, input_layer):
-        return layers.batch_norm(input_layer, fused=True, decay=1.0)
+        return layers.batch_norm(input_layer, fused=True, decay=1.0, scale=True)
 
     def add_bias(self, layer, number_of_channels):
         bias = self.weight_variable("bias", [number_of_channels])
