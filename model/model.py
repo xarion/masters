@@ -1,7 +1,6 @@
 import tensorflow as tf
 
 from blocks import Blocks
-from graph_meta import GraphMeta
 
 
 class SeparableResnet:
@@ -36,7 +35,7 @@ class SeparableResnet:
         self.pop_vars = tf.Variable(0)
 
     def pre_process_input(self):
-        norm = tf.div(self.input, tf.constant(255.0/2), 'norm')
+        norm = tf.div(self.input, tf.constant(255.0 / 2), 'norm')
         return tf.subtract(norm, tf.constant(1.), 'trans')
 
     def inference(self, preprocessed_input):
@@ -116,7 +115,7 @@ class SeparableResnet:
         with tf.variable_scope('train'):
             tf.summary.scalar('loss_total', self.loss)
             if self.learning_rate is not None:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate, epsilon=1.0)
+                optimizer = tf.train.AdamOptimizer(self.learning_rate)
             else:
                 optimizer = tf.train.AdamOptimizer()
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
