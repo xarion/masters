@@ -121,3 +121,6 @@ cifar10_data
 
 *train_logs*
 test_checkpoint_folder
+
+# Resnap code in this folder
+model/helpers/
