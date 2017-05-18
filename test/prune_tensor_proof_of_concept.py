@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from model.prune import Prune
+from model.pruning import OpPruning
 
 
 class TestPruningByIndex(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestPruningByIndex(unittest.TestCase):
             initial_weights = np.random.random(weight_shape)
             weight_tensor = tf.Variable(initial_weights, dtype=tf.float32)
             keep_indices = np.unique(np.random.randint(0, weight_shape[2], int(weight_shape[2] / 2))).astype(np.int32)
-            pruner = Prune()
+            pruner = OpPruning()
             prune = pruner.prune_tensor(weight_tensor, keep_indices, 2)
 
             sess.run([tf.variables_initializer(tf.global_variables())])
