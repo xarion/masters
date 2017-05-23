@@ -1,7 +1,8 @@
 import tensorflow as tf
 
-from model.pruning.op_pruners import HeadNode, LastNode
+
 from blocks import PrunableBlocks
+from model.pruning.relays import HeadNode, LastNode
 
 
 class PrunableSeparableResnet:

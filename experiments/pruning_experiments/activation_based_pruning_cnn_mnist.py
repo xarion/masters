@@ -101,9 +101,6 @@ def main(FLAGS):
     validation_loss_history = []
     step_durations = []
 
-    if FLAGS.plot_figures:
-        import matplotlib.pyplot as plt
-
     def batch_normalization(input_layer, parameters):
         return tf.nn.batch_normalization(input_layer,
                                          mean=parameters[0],
@@ -375,6 +372,7 @@ def main(FLAGS):
                 encode_decode = sess.run(
                     y_pred, feed_dict={X: mnist.test.images[:BATCH_SIZE]})
                 if FLAGS.plot_figures:
+                    import matplotlib.pyplot as plt
                     plt.figure()
                     f, a = plt.subplots(2, 10, figsize=(10, 2))
                     for i in range(EXAMPLES_TO_SHOW):
