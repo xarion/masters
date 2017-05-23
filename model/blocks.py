@@ -83,9 +83,10 @@ class Blocks:
         return self.relu(tf.add(upscaled_features, residual))
 
     def batch_normalization(self, input_layer):
-        return layers.batch_norm(input_layer, fused=True, decay=1.0, scale=True)
+        return self.add_bias(layers.batch_norm(input_layer, fused=True, scale=True, is_training=True, decay=1.0))
 
-    def add_bias(self, layer, number_of_channels):
+    def add_bias(self, layer):
+        number_of_channels = layer.get_shape()[-1]
         bias = self.weight_variable("bias", [number_of_channels])
         return tf.nn.bias_add(layer, bias)
 
@@ -99,7 +100,3 @@ class Blocks:
         fc = tf.expand_dims(fc, 1)
         bn = self.batch_normalization(fc)
         return tf.squeeze(bn, axis=[1, 2])
-
-    def biased_fc(self, input_layer, input_channels, output_channels):
-        pre_bias = self.fc(input_layer, input_channels, output_channels)
-        return self.add_bias(pre_bias, output_channels)
