@@ -1,8 +1,9 @@
 import tensorflow as tf
 from tensorflow.contrib import layers
 
+from model.pruning.op_pruners import ContribLayersBatchNorm, BiasAdd, Matmul, Conv2D, SeparableConv2D, Deconvolution
+from model.pruning.relays import Branch, Join
 from model.pruning.stats import ActivationCountStats
-from model.pruning.op_pruners import ContribLayersBatchNorm, BiasAdd, Matmul, Conv2D, SeparableConv2D, Branch, Join
 
 
 class PrunableBlocks:
@@ -139,3 +140,19 @@ class PrunableBlocks:
     def biased_fc(self, input_layer, input_channels, output_channels, pruner):
         pre_bias, pruner = self.fc(input_layer, input_channels, output_channels, pruner)
         return self.add_bias(pre_bias, output_channels, pruner)
+
+    def deconvolution(self, input_layer, filter_size, input_channels, output_channels, output_dimensions, strides, pruner):
+        weights = self.weight_variable("deconv_weights", [filter_size, filter_size, output_channels, input_channels])
+        output_shape = [output_dimensions[0],
+                        output_dimensions[1],
+                        output_dimensions[2],
+                        weights.get_shape()[2].value]
+        deconv = tf.nn.conv2d_transpose(input_layer,
+                                        weights,
+                                        output_shape,
+                                        strides=[1, strides, strides, 1],
+                                        padding="SAME")
+        deconv_pruner = Deconvolution(weights)
+        deconv_pruner.set_previous_op(pruner)
+
+        return deconv, deconv_pruner
