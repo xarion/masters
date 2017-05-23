@@ -100,9 +100,9 @@ class SeparableResnet:
                                                              input_channels=2048,
                                                              output_channels=1000))
         with tf.variable_scope("output"):
-            logits = self.blocks.biased_fc(fc1,
-                                           input_channels=1000,
-                                           output_channels=1000)
+            logits = self.blocks.fc(fc1,
+                                    input_channels=1000,
+                                    output_channels=1000)
         return logits
 
     def training(self):
