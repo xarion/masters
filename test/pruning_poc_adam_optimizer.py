@@ -71,7 +71,7 @@ class LoadPrunedModelAdam(unittest.TestCase):
 
             np.testing.assert_array_equal(weights, np.zeros([3, 3, 5, 5]))
 
-            saver.save(session, CHECKPOINT)
+            saver.save(session, CHECKPOINT, global_step=1)
             session.close()
 
         # load the checkpoint file for a model with different size
