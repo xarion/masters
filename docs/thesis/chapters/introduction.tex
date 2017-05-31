@@ -20,16 +20,97 @@ What else belongs in the introductory section(s) of your paper?
 Remember that this is not a review paper. We are looking for original work and interpretation/analysis by you. Break up the introduction section into logical segments by using subheads. 
 \fi
 
-The state of the art in Image Processing has changed when graphics processing units (GPU) were used to train Neural Networks. GPU's contain many cores, they have very large data bandwidth and they are optimized for efficient matrix operations. In 2012, \cite{krizhevsky2012imagenet} won the ImageNet Large Scale Visual Recognition Competition (ILSVRC) classification task (\cite{deng2012image}). They used two GPUs to train an 8 layer Convolutional Neural Network (CNN). Their model has improved the previous (top-5) classification accuracy record from $\sim 74\%$ to $\sim 84\%$. This caused a big trend shift in Computer Vision. 
+The state of the art in Image Processing has changed when graphics processing units (GPU) were used to train neural networks. GPUs contain many cores, they have very large data bandwidth and they are optimized for efficient matrix operations. In 2012, \cite{krizhevsky2012imagenet} won the ImageNet Large Scale Visual Recognition Competition (ILSVRC) classification task (\cite{deng2012image}). They used two GPUs to train an 8 layer convolutional neural network (CNN). Their model has improved the previous (top-5) classification accuracy record from $\sim 74\%$ to $\sim 84\%$. This caused a big trend shift in Computer Vision. 
 
-As the years pass, GPU's got more and more powerful. In 2012, \cite{krizhevsky2012imagenet} used GPU's that had 3 GB memory. Today there are GPU's with up to 12 GB memory. The number of floating point operations per second (FLOPs) has also increased from $2.5$ tera FLOPs (TFLOPs) to $12$ TFLOPs. This gradual but steep change has allowed the use of more layers and more parameters. For example, \cite{Simonyan:2014aa} introduced a model called VGGNet. Their model used up to 19 layers and shown that adding more layers effects the accuracy. \cite{He:2015aa} introduced a new method (residual connections) that allowed the use of more layers (up to 200). Building up on such models, in 2016 ILSVRC winning (top-5) classification accuracy is increased to $\sim 97\%$. 
+As the years pass, GPUs got more and more powerful. In 2012, \cite{krizhevsky2012imagenet} used GPUs that had 3 GB memory. Today there are GPUs with up to 12 GB memory. The number of floating point operations per second (FLOPs) has also increased from $2.5$ tera FLOPs (TFLOPs) to $12$ TFLOPs. This gradual but steep change has allowed the use of more layers and more parameters. For example, \cite{Simonyan:2014aa} introduced a model called VGGNet. Their model used up to 19 layers and shown that adding more layers affects the accuracy. \cite{He:2015aa} introduced a new method called residual connections, that allowed the use of up to 200 layers. Building up on such models, in 2016 ILSVRC winning (top-5) classification accuracy is increased to $\sim 97\%$. 
 
-In contrast, \cite{Szegedy:2014aa} have shown that having a good harmony within the network worked better than having more parameters. Supporting that \cite{Canziani:2016aa} has shown the relation between number of parameters of a model and its top-1 classification accuracy in ILSVRC dataset (ImageNet). According to their report, 48 layer Inception-v3 (introduced in \cite{Szegedy_2016_CVPR}) provides better top-1 classification accuracy (ImageNet) than 152 layer ResNet (introduced in \cite{He:2015aa}). They also show that Inception-v3 is requiring fewer number of FLOPs to compute results. Therefore revealing the illusion of providing more layers and parameters would yield with better results. 
+In contrast, \cite{Szegedy:2014aa} have shown that having a good harmony within the network worked better than having more parameters. It has been supported by \cite{Canziani:2016aa}. They have shown the relation between number of parameters of a model and its top-1 classification accuracy in ILSVRC dataset. According to their report, 48 layer Inception-v3 (\cite{Szegedy_2016_CVPR}) provides better top-1 classification accuracy than 152 layer ResNet (\cite{He:2015aa}). They also show that Inception-v3 requires fewer number of floating point operations to compute results. Therefore, revealing that of providing more layers and parameters would not yield better results. 
 
-ILSVRC is one of the most famous and driving competition in Image Processing. But this competition is not considering the competitive value of limiting number of operations. If we look at the methods 2016 of competitors, we see that they use ensembles of models \footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. These ensembles are far from being usable in real life because they require a great amount of operations per inference. Hiding the number of operations from the result is misleading for the AI community and the public. It creates an unreal expectation to apply these models in real life. In this study, we are going to try to come up with a state of the art solution that requires low computing power. So low that it can run on a smartphone without trouble. Therefore, bridging the gap between expectations and reality.
+ILSVRC is one of the most famous competitions in Image Processing. Every year, the winners of this competition are a driving the research on the field. But this competition is not considering the competitive value of limiting number of operations. If we look at the models of 2016 competitors, we see that they use ensembles of models\footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. These ensembles are far from being usable in real life because they require a great amount of operations per inference. Not mentioning the number of operations from the result is misleading for the AI community and the public. It creates an unreal expectation that these models are applicable in real life. In this thesis, we want to come up with a state of the art solution that requires a low number of floating point operations per inference. Therefore, bridging the gap between expectations and reality.
+
 \section{Background}
-\subsection{Datasets}
+In this chapter, we will try to describe neural networks briefly. To keep things simple, we are concerned with feed forward neural networks for now. We will provide some terminology and give some examples. 
+
+\subsection{Neural Networks}
+Neural networks are \textit{weighted graphs}. They consist of an ordered set of \textit{layers}, where every layer is a set of \textit{nodes}. The first layer of the neural network is called the \textit{input layer}, and the last one is called the \textit{output layer}. The layers in between are called \textit{hidden layers}. In our case, nodes belonging to one layer are connected to the nodes in the following and/or the previous layers. These connections are weighted edges, and they are mostly called as \textit{weights}. 
+
+Given an input, neural networks nodes have \textit{outputs}, which are real numbers. The output of a node is calculated by applying a function ($\psi$) the outputs of the nodes belonging to previous layers . Preceding that, the output of the input layer is calculated using the input data (see Eq. \ref{eq:output_of_layers}).  By calculating the layer outputs consecutively we calculate the output of the output layer. This process is called \textit{inference}. We use the following notations to denote the concepts that we just explained.
+\begin{equation}
+\label{eq:variable_definitions}
+\begin{split}
+\mathbf{bold} & \text{: bold defines a vector or a matrix} \\
+rest & \text{: non-bold refers to a non-matrix} \\
+l_k & \text{: a column vector of nodes for layer $k$}\\
+l_{k,i}  & \text{: node $i$ in $l_k$}\\
+o_{k}  & \text{: the output vector representing the outputs of nodes in $l_{k}$}\\
+o_{k,i}  & \text{: the output of $l_{k,i}$}\\
+\mathbf{w}^{(k)}  & \text{: weight matrix connecting nodes in $l_{k-1}$ to nodes in $l_{k}$} \\
+w^{(k)}_{i,j}  & \text{: the weight connecting nodes $l_{(k-1),i}$ and $l_{k,j}$} \\
+\psi_k & \text{: function to determine the outputs of $l_k$}\\
+\mathbf{x} & \text{: an input column vector } \\
+\mathbf{y} & \text{: a truth column vector (output from dataset)} \\
+\mathbf{\hat y} & \text{: an output column vector (the approximation of the truth)}  \\
+\mathbf{X} & \text{: all inputs in a dataset } \\
+\mathbf{Y} & \text{: all truths in a dataset } \\
+\mathbf{W} & \text{: all weights in a neural network}
+\end{split}
+\end{equation}
+Therefore the structure of a neural network is determined by the number of layers and the functions that determine the outputs of layers.
+\begin{equation}
+\label{eq:output_of_layers}
+    o_k = 
+\begin{cases}
+    \psi(o_{k-1}), &\text{if } k\geq 1\\
+    \psi(\mathbf{x}),& k = 0\\
+\end{cases}
+\end{equation}
+\iffalse
+Assume a target function $f$ that we want to approximate. First, to learn to approximate this function, we will need samples. These samples are called as the \textit{dataset}. Let's assume that $f$ has two input variables represented by an input vector ($\mathbf{x}$) and a scalar output ($y$).
+
+\begin{equation*}
+f(\mathbf{x}) = y
+\end{equation*}
+\fi
+\subsection{Fully Connected Layers}
+As the name suggests, for two consecutive layers to be \textit{fully connected}, all nodes in the previous layer must be connected to all nodes in the following layer. 
+
+Let's assume two consecutive layers, $l_{k}$ and $l_{k+1}$, with shapes $m \times 1$ and $n \times 1$, respectively. For these layers to be fully connected, the weight matrix $\mathbf{w}^{(k)}$, should be of shape $m \times n$. In fully connected layers, the output of the later layer would simply be calculated as,
+$$ \psi_k(o) = o^T\mathbf{w}^{(k)} $$
+$$ o_k = \psi_k(o_{k-1}) $$
+
+\subsection{Loss}
+
+To represent the quality of an approximation, we are going to use a loss (or cost) function. A common loss function is Root Mean Square Error (RMSE). Given an approximation and a truth, using RMSE, the loss can be calculated as,
+\begin{equation*}
+RMSE(\mathbf{\hat y}, \mathbf{y}) = \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}
+\end{equation*}
+There are two common properties of loss functions. First, loss values are never negative. Second, if we compare two different approximations of $f$ using the same data points, the approximation yielding with a lower loss value is more preferable to other (excluding exceptions, such as overfitting).
+
+If we assume that all our approximations are exactly the same as the output ($  \mathbf{\hat Y} =  \mathbf{Y} $), the total loss would be 0. 
+
+\subsection{Gradient Descent}
+Since lower loss values correspond to higher quality of approximation, we are interested in optimizing $\mathbf{W}$. Therefore, we are interested in the optimal values of $\mathbf{W}$ that achieve that. 
+One common way to optimize neural networks weights is to use Gradient Descent. Gradient descent works with iterations. In each iteration, we calculate the partial derivative of the loss function for weights. To do that, first we need to write the loss function in terms of weight variables.
+\begin{equation*}
+\begin{split}
+l &= \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}\\
+ &= \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}
+\end{split}
+\end{equation*}
+
+
+\subsection{Convolution Operation}
+
+\subsection{Training}
+
+\subsection{Loss}
+
+\subsection{Non-Linearity}
+
+\subsection{Activations}
+
 \subsubsection{MNIST}
+
 \todoin{things to be explained: FC layer, Convolution Operation, what do we mean when we say neuron/node, activation, bias, training dataset, different paddings, SVD}
 \todoin{Luc says: Like add a mathematical formulation of deep networks, how you go from NN to DNN to CNN and RNN. What are the pros and cons of these networks? Also, here I would explain all concepts that arise later (for example: what is a conv kernel, SAME padding, etc)}
 
