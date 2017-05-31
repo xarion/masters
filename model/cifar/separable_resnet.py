@@ -93,18 +93,10 @@ class SeparableResnet:
             input_channels = 2048
 
         with tf.variable_scope("output"):
-            # avg_pool = tf.nn.avg_pool(residual_layer, [1, 7, 7, 1], [1, 1, 1, 1], "VALID")
-
             self.freeze_layer = tf.squeeze(residual_layer, axis=[1, 2])
-            # self.freeze_layer = avg_pool
-            # avg_pool = self.blocks.relu(self.freeze_layer)
             logits = self.blocks.relu(self.blocks.normalized_fc(self.freeze_layer,
                                                                 input_channels=2048,
                                                                 output_channels=10))
-        # with tf.variable_scope("output"):
-        #     logits = self.blocks.fc(fc1,
-        #                             input_channels=1000,
-        #                             output_channels=1000)
         return logits
 
     def training(self):
@@ -117,11 +109,11 @@ class SeparableResnet:
         with tf.variable_scope('train'):
             tf.summary.scalar('loss_total', self.loss)
             if self.learning_rate is not None:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
             else:
-                optimizer = tf.train.AdamOptimizer()
+                self.optimizer = tf.train.AdamOptimizer()
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
-            self.train_step = optimizer.minimize(self.loss, global_step=self.global_step)
+            self.train_step = self.optimizer.minimize(self.loss, global_step=self.global_step)
 
     def evaluation(self):
         with tf.variable_scope('accuracy'):

@@ -1,4 +1,4 @@
-from model import SeparableResnet
+from separable_resnet import SeparableResnet
 import tensorflow as tf
 
 CHECKPOINT_FOLDER = "checkpoints"

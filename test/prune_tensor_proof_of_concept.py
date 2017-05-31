@@ -35,7 +35,7 @@ class TestPruningByIndex(unittest.TestCase):
             weight_tensor = tf.Variable(initial_weights, dtype=tf.float32)
             keep_indices = np.unique(np.random.randint(0, weight_shape[2], int(weight_shape[2] / 2))).astype(np.int32)
             pruner = OpPruning()
-            prune = pruner.prune_tensor(weight_tensor, keep_indices, 2)
+            prune = pruner.prune(weight_tensor, keep_indices, 2)
 
             sess.run([tf.variables_initializer(tf.global_variables())])
             weights, = sess.run([weight_tensor])

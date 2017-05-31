@@ -9,10 +9,10 @@ class Conv2D(OpPruning):
         self.weight_tensor = weight_tensor
 
     def prune_input_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=2)]
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=2)
 
     def prune_output_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=3)]
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=3)
 
 
 class SeparableConv2D(OpPruning):
@@ -22,11 +22,11 @@ class SeparableConv2D(OpPruning):
         self.pointwise_weight_tensor = pointwise_weight_tensor
 
     def prune_input_channel(self, keep_indices):
-        return [self.prune_tensor(self.depthwise_weight_tensor, keep_indices, axis=2),
-                self.prune_tensor(self.pointwise_weight_tensor, keep_indices, axis=2)]
+        self.depthwise_weight_tensor = self.prune(self.depthwise_weight_tensor, keep_indices, axis=2)
+        self.pointwise_weight_tensor = self.prune(self.pointwise_weight_tensor, keep_indices, axis=2)
 
     def prune_output_channel(self, keep_indices):
-        return [self.prune_tensor(self.pointwise_weight_tensor, keep_indices, axis=3)]
+        self.pointwise_weight_tensor = self.prune(self.pointwise_weight_tensor, keep_indices, axis=3)
 
 
 class ContribLayersBatchNorm(OpPruning):
@@ -47,15 +47,14 @@ class ContribLayersBatchNorm(OpPruning):
                 self.gamma = None
 
     def prune_input_channel(self, keep_indices):
-        ops = [self.prune_tensor(self.beta, keep_indices, axis=0),
-               self.prune_tensor(self.moving_mean, keep_indices, axis=0),
-               self.prune_tensor(self.moving_variance, keep_indices, axis=0)]
-        if self.gamma:
-            ops.append(self.prune_tensor(self.gamma, keep_indices, axis=0))
-        return ops
+        pass
 
     def prune_output_channel(self, keep_indices):
-        return []
+        self.beta = self.prune(self.beta, keep_indices, axis=0)
+        self.moving_mean = self.prune(self.moving_mean, keep_indices, axis=0)
+        self.moving_variance = self.prune(self.moving_variance, keep_indices, axis=0)
+        if self.gamma:
+            self.gamma = self.prune(self.gamma, keep_indices, axis=0)
 
 
 class BiasAdd(OpPruning):
@@ -67,7 +66,7 @@ class BiasAdd(OpPruning):
         return []
 
     def prune_output_channel(self, keep_indices):
-        return [self.prune_tensor(self.bias, keep_indices, axis=0)]
+        self.bias = self.prune(self.bias, keep_indices, axis=0)
 
 
 class Matmul(OpPruning):
@@ -76,23 +75,10 @@ class Matmul(OpPruning):
         self.weight_tensor = weight_tensor
 
     def prune_input_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=0)]
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=0)
 
     def prune_output_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=1)]
-
-
-class ResidualConnection(OpPruning):
-    """
-     Residual connection consisting of (previous_residual_output + residual_output) 
-     Hard to implement, skipping for now.
-    """
-
-    def prune_output_channel(self, keep_indices):
-        pass
-
-    def prune_input_channel(self, keep_indices):
-        pass
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=1)
 
 
 class ResidualLayerOutput(OpPruning):
@@ -115,7 +101,7 @@ class Deconvolution(OpPruning):
         self.weight_tensor = weight_tensor
 
     def prune_input_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=3)]
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=3)
 
     def prune_output_channel(self, keep_indices):
-        return [self.prune_tensor(self.weight_tensor, keep_indices, axis=2)]
+        self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=2)

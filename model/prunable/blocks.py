@@ -2,13 +2,14 @@ import tensorflow as tf
 from tensorflow.contrib import layers
 
 from model.pruning.op_pruners import ContribLayersBatchNorm, BiasAdd, Matmul, Conv2D, SeparableConv2D, Deconvolution
-from model.pruning.relays import Branch, Join
-from model.pruning.stats import ActivationCountStats
+from model.pruning.relays import ResidualBranch, ResidualConnectionWithStat, EmptyForwardRelay, EmptyBackwardRelay
+from model.pruning.stats import ActivationValueStats
 
 
 class PrunableBlocks:
-    def __init__(self, graph_meta):
+    def __init__(self, graph_meta, training=True):
         self.graph_meta = graph_meta
+        self.training = training
 
     def get_variable_with_shape_by_graph_meta_getter(self, getter, name, shape, *args, **kwargs):
         if self.graph_meta is not None:
@@ -27,7 +28,7 @@ class PrunableBlocks:
 
     def relu(self, input_layer, pruner):
         relu = tf.nn.relu(input_layer)
-        stat = ActivationCountStats(relu)
+        stat = ActivationValueStats(relu)
         stat.set_previous_op(pruner)
         return relu, stat
 
@@ -58,11 +59,11 @@ class PrunableBlocks:
                                          padding="VALID")
         separable_pruner = SeparableConv2D(depthwise_filter, pointwise_filter)
         separable_pruner.set_previous_op(pruner)
-        return self.batch_normalization(pointwise_results, pruner)
+        return self.batch_normalization(pointwise_results, separable_pruner)
 
     def residual_bottleneck_separable(self, input_layer, input_channels, downscaled_outputs, upscaled_outputs,
                                       strides, pruner):
-        branching_pruner = Branch()
+        branching_pruner = ResidualBranch()
         branching_pruner.set_previous_op(pruner)
         if input_channels != upscaled_outputs or strides != 1:
             with tf.variable_scope("upscale_residual"):
@@ -72,6 +73,9 @@ class PrunableBlocks:
                                                         output_channels=upscaled_outputs,
                                                         strides=strides,
                                                         pruner=branching_pruner)
+                no_relay_pruner = EmptyForwardRelay()
+                no_relay_pruner.set_previous_op(residual_pruner)
+                residual_pruner = no_relay_pruner
 
         else:
             residual = input_layer
@@ -79,6 +83,9 @@ class PrunableBlocks:
         pruner = branching_pruner
 
         with tf.variable_scope("bottleneck_downscale"):
+            no_relay_pruner = EmptyBackwardRelay()
+            no_relay_pruner.set_previous_op(pruner)
+            pruner = no_relay_pruner
             downscaled_features, pruner = self.conv2d(input_layer,
                                                       filter_size=1,
                                                       input_channels=input_channels,
@@ -101,19 +108,21 @@ class PrunableBlocks:
                                                     output_channels=upscaled_outputs,
                                                     strides=1,
                                                     pruner=pruner)
+            no_relay_pruner = EmptyForwardRelay()
+            no_relay_pruner.set_previous_op(pruner)
+            pruner = no_relay_pruner
 
-        connection, pruner = self.residual_connection(upscaled_features, residual, residual_pruner, pruner)
-        return self.relu(connection, pruner)
+        connection, pruner = self.residual_connection(residual, upscaled_features, residual_pruner, pruner)
+        relu, stat_op = self.relu(connection, pruner)
+        pruner.set_stat_op(stat_op)
+        return relu, pruner
 
     def residual_connection(self, residual, current, residual_pruner, pruner):
-        joining_pruner = Join()
-        joining_pruner.set_previous_op(residual_pruner)
-        joining_pruner.set_previous_op(pruner)
-
-        return tf.add(residual, current), joining_pruner
+        connection = ResidualConnectionWithStat(residual_pruner, pruner)
+        return tf.add(residual, current), connection
 
     def batch_normalization(self, input_layer, pruner):
-        bn = layers.batch_norm(input_layer, fused=True, decay=1.0, scale=True)
+        bn = layers.batch_norm(input_layer, fused=True, decay=1.0, scale=True, trainable=self.training)
         bn_pruner = ContribLayersBatchNorm()
         bn_pruner.set_previous_op(pruner)
         return bn, bn_pruner
@@ -128,7 +137,7 @@ class PrunableBlocks:
         weights = self.weight_variable("fc_weights", [input_channels, output_channels])
         fc_pruner = Matmul(weights)
         fc_pruner.set_previous_op(pruner)
-        return tf.matmul(input_layer, weights), pruner
+        return tf.matmul(input_layer, weights), fc_pruner
 
     def normalized_fc(self, input_layer, input_channels, output_channels, pruner):
         fc, pruner = self.fc(input_layer, input_channels, output_channels, pruner)
@@ -141,7 +150,8 @@ class PrunableBlocks:
         pre_bias, pruner = self.fc(input_layer, input_channels, output_channels, pruner)
         return self.add_bias(pre_bias, output_channels, pruner)
 
-    def deconvolution(self, input_layer, filter_size, input_channels, output_channels, output_dimensions, strides, pruner):
+    def deconvolution(self, input_layer, filter_size, input_channels, output_channels, output_dimensions, strides,
+                      pruner):
         weights = self.weight_variable("deconv_weights", [filter_size, filter_size, output_channels, input_channels])
         output_shape = [output_dimensions[0],
                         output_dimensions[1],

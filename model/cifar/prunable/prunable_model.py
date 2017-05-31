@@ -1,25 +1,26 @@
 import tensorflow as tf
 
-
-from blocks import PrunableBlocks
+from model.prunable.blocks import PrunableBlocks
 from model.pruning.relays import HeadNode, LastNode
 
 
-class PrunableSeparableResnet:
-    def __init__(self, learning_rate=None, input_tensor=None, label_tensor=None, graph_meta=None):
-        self.blocks = PrunableBlocks(graph_meta)
+class SeparableResnet:
+    def __init__(self, learning_rate=None, input_tensor=None, label_tensor=None, graph_meta=None, training=True,
+                 batch_size=None):
+        self.batch_size = batch_size
+        self.blocks = PrunableBlocks(graph_meta, training)
         if input_tensor is None:
-            self.input = tf.placeholder(dtype=tf.float32, shape=(None, 224, 224, 3))
+            self.input = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, 24, 24, 3))
         else:
             self.input = input_tensor
 
         if label_tensor is None:
-            self.label = tf.placeholder(dtype=tf.int32, shape=(None))
+            self.label = tf.placeholder(dtype=tf.int32, shape=(self.batch_size))
         else:
             self.label = label_tensor
 
+        # tf.summary.image("input_image", self.input)
         preprocessed_input = self.pre_process_input()
-
         self.last_pruner_node = None
         self.head_pruner_node = None
         self.freeze_layer = None
@@ -34,11 +35,6 @@ class PrunableSeparableResnet:
         self.training()
         self.evaluation()
         # dummy variable that is temporarily ignored
-        self.inf = tf.placeholder_with_default(True, None, name='inference')
-        self.keep_prob = tf.placeholder(tf.float32)
-        self.pop_vars = tf.Variable(0)
-
-
 
     def pre_process_input(self):
         norm = tf.div(self.input, tf.constant(255.0 / 2), 'norm')
@@ -101,31 +97,19 @@ class PrunableSeparableResnet:
                                                                                    strides=2 if residual_block == 1 else 1,
                                                                                    pruner=pruner)
             input_channels = 2048
-
-        with tf.variable_scope("fully_connected_1"):
-            avg_pool = tf.nn.avg_pool(residual_layer, [1, 7, 7, 1], [1, 1, 1, 1], "VALID")
-
-            avg_pool = tf.squeeze(avg_pool, axis=[1, 2])
-            self.freeze_layer = avg_pool
-            avg_pool, pruner = self.blocks.relu(avg_pool, pruner)
-            fc1, pruner = self.blocks.normalized_fc(avg_pool,
-                                                    input_channels=2048,
-                                                    output_channels=1000,
-                                                    pruner=pruner)
-            fc1, pruner = self.blocks.relu(fc1, pruner)
-
         with tf.variable_scope("output"):
-            logits, pruner = self.blocks.biased_fc(fc1,
-                                                   input_channels=1000,
-                                                   output_channels=1000,
-                                                   pruner=pruner)
+            self.freeze_layer = tf.squeeze(residual_layer, axis=[1, 2])
+            logits, pruner = self.blocks.fc(self.freeze_layer,
+                                            input_channels=2048,
+                                            output_channels=10,
+                                            pruner=pruner)
             self.last_pruner_node = LastNode()
             self.last_pruner_node.set_previous_op(pruner)
         return logits
 
     def training(self):
         with tf.variable_scope('loss'):
-            self.one_hot_truth = tf.squeeze(tf.one_hot(self.label, 1000, on_value=0.9, off_value=0.0001))
+            self.one_hot_truth = tf.squeeze(tf.one_hot(self.label, 10))
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.one_hot_truth)
             self.loss = tf.reduce_mean(cross_entropy)
             tf.add_to_collection('losses', self.loss)
@@ -133,11 +117,11 @@ class PrunableSeparableResnet:
         with tf.variable_scope('train'):
             tf.summary.scalar('loss_total', self.loss)
             if self.learning_rate is not None:
-                optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
             else:
-                optimizer = tf.train.AdamOptimizer()
+                self.optimizer = tf.train.AdamOptimizer()
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
-            self.train_step = optimizer.minimize(self.loss, global_step=self.global_step)
+            self.train_step = self.optimizer.minimize(self.loss, global_step=self.global_step)
 
     def evaluation(self):
         with tf.variable_scope('accuracy'):

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import tarfile
@@ -6,7 +8,9 @@ import tensorflow as tf
 from six.moves import urllib
 
 import data as cifar10
-from separable_resnet import SeparableResnet
+from model.graph_meta import GraphMeta
+from model.pruning import OpStats, OpPruning
+from prunable.prunable_model import SeparableResnet
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -51,68 +55,82 @@ CHECKPOINT_NAME = "SEP-RESNET-52"
 DATA_DIR = "./data"
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
+max_sample_count = cifar10.NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
 
-class Train:
+
+# max_sample_count = 3
+
+
+class Prune:
     def __init__(self):
-        available_devices = os.environ['CUDA_VISIBLE_DEVICES'].split(',')
-        os.environ['CUDA_VISIBLE_DEVICES'] = available_devices[FLAGS.gpu]
+        # available_devices = os.environ['CUDA_VISIBLE_DEVICES'].split(',')
+        # os.environ['CUDA_VISIBLE_DEVICES'] = available_devices[FLAGS.gpu]
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+
+        self.latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
+        self.graph_meta = GraphMeta(self.latest_checkpoint)
 
         self.graph = tf.Graph()
 
         with self.graph.as_default():
-            if FLAGS.mode == 1:
-                self.maybe_download_and_extract()
-                train_images, train_labels = cifar10.distorted_inputs(DATA_DIR + "/cifar-10-batches-bin",
-                                                                      FLAGS.batch_size)
-                self.model = SeparableResnet(learning_rate=FLAGS.learning_rate,
-                                             input_tensor=train_images,
-                                             label_tensor=train_labels)
+            images, labels = cifar10.inputs(False, DATA_DIR + "/cifar-10-batches-bin", FLAGS.batch_size)
 
-            elif FLAGS.mode == 2:
-                valid_images, valid_labels = cifar10.inputs(True, DATA_DIR + "/cifar-10-batches-bin", FLAGS.batch_size)
-
-                self.model = SeparableResnet(learning_rate=FLAGS.learning_rate,
-                                             input_tensor=valid_images,
-                                             label_tensor=valid_labels)
-            else:
-                self.model = SeparableResnet()
+            self.model = SeparableResnet(learning_rate=FLAGS.learning_rate,
+                                         input_tensor=images,
+                                         label_tensor=labels,
+                                         graph_meta=self.graph_meta,
+                                         training=False)
 
         self.session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True),
                                   graph=self.graph)
 
-    def train(self):
+    def prune(self):
         with self.graph.as_default():
-            self.session.run(tf.variables_initializer(tf.local_variables()))
-            merged = tf.summary.merge_all()
-            train_writer = tf.summary.FileWriter("summaries", self.graph)
-            saver = tf.train.Saver(max_to_keep=1, keep_checkpoint_every_n_hours=4)
+            variables = tf.global_variables()
+            variables.extend(tf.local_variables())
+            saver = tf.train.Saver(var_list=variables, max_to_keep=1)
+            self.model.head_pruner_node.start()
+            self.session.run(tf.variables_initializer(tf.global_variables()))
 
-            latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
-            self.session.run(tf.variables_initializer(tf.local_variables()))
-
-            if latest_checkpoint:
-                self.log("loading from checkpoint file: " + latest_checkpoint)
-                saver.restore(self.session, latest_checkpoint)
+            if self.latest_checkpoint:
+                self.log("loading from checkpoint file: " + self.latest_checkpoint)
+                saver.restore(self.session, self.latest_checkpoint)
             else:
-                self.log("checkpoint not found, initializing variables.")
-                self.session.run(tf.variables_initializer(tf.global_variables()))
+                raise Exception("Checkpoint file not found. Can not proceed with pruning.")
+            Prune.log("loaded checkpoint file")
 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=self.session, coord=coord)
-            try:
-                while not coord.should_stop():
-                    m, _, loss, step, = self.session.run(
-                        [merged,
-                         self.model.train_step,
-                         self.model.loss,
-                         self.model.global_step])
+            stat_ops_collection = tf.get_collection(OpStats.STAT_OP_COLLECTION)
+            prune_ops_collection = tf.get_collection(OpPruning.PRUNE_OP_COLLECTION)
+            shape_ops_collection = tf.get_collection(OpPruning.SHAPES_COLLECTION)
 
-                    train_writer.add_summary(m, step)
-                    if step % CHECKPOINT_STEP == 0:
-                        saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
+            self.session.run(tf.variables_initializer(tf.global_variables()))
+
+            try:
+                sample_count = 0
+                while not coord.should_stop():
+                    _, = self.session.run(
+                        [stat_ops_collection])
+                    sample_count += FLAGS.batch_size
+                    self.log("processed: %d/%d" % (sample_count, max_sample_count))
+                    if sample_count >= max_sample_count:
+                        break
+                _, new_shapes, = self.session.run(
+                    [prune_ops_collection, shape_ops_collection])
+                # self.log(str(new_shapes))
+                for new_shape in new_shapes:
+                    tensor_name = new_shape.items()[0][0]
+                    new_shape = new_shape.items()[0][1]
+
+                    self.graph_meta.set_variable_shape(tensor_name, new_shape)
+
+                self.graph_meta.save(self.graph_meta.step + 1)
+                self.log(str(self.graph_meta.dict))
+                saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME,
+                           global_step=self.graph_meta.step + 1)
             except tf.errors.OutOfRangeError:
-                self.log('Done training -- epoch limit reached')
+                self.log('Done pruning')
             finally:
                 coord.request_stop()
 
@@ -121,7 +139,9 @@ class Train:
 
     @staticmethod
     def log(message):
-        # logger.info(message)
+        sys.stdout.write(message)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
         pass
 
     @staticmethod
@@ -139,17 +159,17 @@ class Train:
                 sys.stdout.flush()
 
             filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
-            print()
+
             statinfo = os.stat(filepath)
-            print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+            Prune.log('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
         extracted_dir_path = os.path.join(dest_directory, 'cifar-10-batches-bin')
         if not os.path.exists(extracted_dir_path):
             tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
 
 def main(_):
-    t = Train()
-    t.train()
+    p = Prune()
+    p.prune()
 
 
 if __name__ == '__main__':
