@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from model.pruning import Relay, OpStats
+from model.pruning.helpers import sorted_union, assign
 
 
 class HeadNode(Relay):
@@ -53,6 +54,8 @@ class ResidualBranch(Relay):
         Relay.__init__(self)
         self.joined = False
         self.other_next_op = None
+        self.previous_keep_indices = None
+        self.other_keep_indices = None
 
     def set_next_op(self, next_op):
         if self.other_next_op is None:
@@ -61,71 +64,59 @@ class ResidualBranch(Relay):
         Relay.set_next_op(self, next_op)
 
     def prune_and_relay_next(self, keep_indices):
+        self.previous_keep_indices = keep_indices
         self.other_next_op.prune_and_relay_next(keep_indices)
         self.next_op.prune_and_relay_next(keep_indices)
 
     def prune_and_relay_previous(self, keep_indices):
-        if self.joined:
-            self.previous_op.prune_and_relay_previous(keep_indices)
-        else:
+        if not self.joined:
             self.joined = True
+            self.other_keep_indices = keep_indices
+        else:
+            union_op = sorted_union(self.previous_keep_indices, sorted_union(self.other_keep_indices, keep_indices))
+            assign_keep_indices = assign(keep_indices, union_op)
+            assign_other_keep_indices = assign(self.other_keep_indices, union_op)
+            tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_keep_indices)
+            tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_other_keep_indices)
+            self.previous_op.prune_and_relay_previous(assign_keep_indices)
 
 
-class ResidualConnectionWithStat(Relay):
+class ResidualJoin(Relay):
     """
     Joins the contents of connected residuals
     """
 
-    def __init__(self, residual_pruner, other_pruner):
+    def __init__(self):
         Relay.__init__(self)
-        self.stat_op = None
-        self.residual_pruner = residual_pruner
-        self.residual_pruner.set_next_op(self)
-        self.set_previous_op(other_pruner)
+        self.other_previous_op = None
         self.joined = False
         self.keep_indices = None
+        self.other_keep_indices = None
+        self.union_op = None
 
-    def set_stat_op(self, stat_op):
-        """
-        sets the stat op that determines the dimensions to be kept for this connection.
-        :param stat_op:
-        :return:
-        """
-        self.stat_op = stat_op
+    def set_previous_op(self, previous_op):
+        if self.other_previous_op is None:
+            self.other_previous_op = previous_op
+        # overrides the previous_op when called a second time
+        Relay.set_previous_op(self, previous_op)
 
     def prune_and_relay_next(self, keep_indices):
-        if self.keep_indices is None:
-            self.keep_indices = tf.Variable([], dtype=tf.int32)
-
-        if keep_indices is not None:
-            assign_op = tf.assign(self.keep_indices,
-                                  self.sorted_union(keep_indices, self.keep_indices),
-                                  validate_shape=False)
-            self.keep_indices = assign_op
-            tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_op)
-
         if not self.joined:
             self.joined = True
+            self.keep_indices = keep_indices
         else:
-            stat_keep_indices = self.stat_op.get_dimensions_to_keep()
-            assign_op = tf.assign(self.keep_indices,
-                                  self.sorted_union(self.keep_indices, stat_keep_indices),
-                                  validate_shape=False)
-            self.keep_indices = assign_op
-            tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_op)
+            self.other_keep_indices = keep_indices
+            self.union_op = sorted_union(self.keep_indices, self.other_keep_indices)
             self.next_op.prune_and_relay_next(self.keep_indices)
 
     def prune_and_relay_previous(self, keep_indices):
-        self.previous_op.prune_and_relay_previous(self.keep_indices)
-        self.residual_pruner.prune_and_relay_previous(self.keep_indices)
-
-    @staticmethod
-    def sorted_union(a, b):
-        merged = tf.concat([a, b], axis=0)
-        set = tf.unique(merged)
-        reversed_set = set[0] * -1
-        reverse_sorted_set = tf.nn.top_k(reversed_set, k=tf.shape(reversed_set)[0])
-        return tf.cast(reverse_sorted_set.values * -1, dtype=tf.int32)
+        self.union_op = sorted_union(keep_indices, self.union_op)
+        assign_keep_indices = assign(self.keep_indices, self.union_op)
+        assign_other_keep_indices = assign(self.other_keep_indices, self.union_op)
+        tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_keep_indices)
+        tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_other_keep_indices)
+        self.other_previous_op.prune_and_relay_previous(assign_keep_indices)
+        self.previous_op.prune_and_relay_previous(assign_keep_indices)
 
 
 class EmptyForwardRelay(Relay):
@@ -137,8 +128,8 @@ class EmptyForwardRelay(Relay):
         Relay.__init__(self)
 
     def prune_and_relay_next(self, keep_indices):
-        empty = tf.Variable([], dtype=tf.int32)
-        empty = tf.assign(empty, empty)
+        self.keep_indices = tf.Variable([], dtype=tf.int32, name="empty_relay")
+        empty = assign(self.keep_indices, self.keep_indices)
         self.next_op.prune_and_relay_next(empty)
 
     def prune_and_relay_previous(self, keep_indices):
@@ -157,6 +148,6 @@ class EmptyBackwardRelay(Relay):
         self.next_op.prune_and_relay_next(keep_indices)
 
     def prune_and_relay_previous(self, keep_indices):
-        empty = tf.Variable([], dtype=tf.int32)
-        empty = tf.assign(empty, empty)
+        self.keep_indices = tf.Variable([], dtype=tf.int32, name="empty_relay")
+        empty = assign(self.keep_indices, self.keep_indices)
         self.previous_op.prune_and_relay_previous(empty)

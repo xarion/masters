@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from model.pruning.helpers import sorted_union, assign
+
 
 class Relay:
     def __init__(self):
@@ -58,9 +60,14 @@ class OpPruning(Relay):
         swap_indices[axis] = 0
         swap_indices = tf.stack(swap_indices)
         swapped_tensor = tf.transpose(tensor, swap_indices)
+        swapped_tensor = tf.cond(tf.reduce_max(keep_indices) > tf.shape(tensor)[axis],
+                                 lambda: tf.Print(swapped_tensor,
+                                                  [tensor.name, tf.shape(tensor), tf.reduce_max(keep_indices), axis],
+                                                  summarize=4),
+                                 lambda: swapped_tensor)
         pruned_swapped_tensor = tf.gather(swapped_tensor, keep_indices)
         new_tensor = tf.transpose(pruned_swapped_tensor, swap_indices)
-        assign_op = tf.assign(tensor, new_tensor, validate_shape=False, name="assign/" + tensor.name.split(':')[0])
+        assign_op = tf.assign(tensor, new_tensor, validate_shape=False, name="assign_pruned/" + tensor.name.split(':')[0])
 
         tf.add_to_collection(OpPruning.PRUNE_OP_COLLECTION, assign_op)
 
@@ -68,7 +75,6 @@ class OpPruning(Relay):
 
     def prune(self, tensor, keep_indices, axis):
         new_tensor = self.prune_tensor(tensor, keep_indices, axis)
-        print("tensor: %s\nkeep: %s\naxis: %d" %(tensor.name, keep_indices.name, axis))
         new_ops = []
         for related_tensor in self.get_related_tensors(tensor):
             new_ops.append(self.prune_tensor(related_tensor, keep_indices, axis))
@@ -142,17 +148,19 @@ class OpStats(Relay):
     def prune_and_relay_next(self, keep_indices):
         self.register_stat_collection_ops()
         if self.keep_indices is None:
-            self.keep_indices = self.get_dimensions_to_keep()
+            self.set_keep_indices()
         self.next_op.prune_and_relay_next(self.keep_indices)
-
 
     def prune_and_relay_previous(self, keep_indices):
         if self.keep_indices is None:
-            self.keep_indices = self.get_dimensions_to_keep()
+            self.set_keep_indices()
         self.previous_op.prune_and_relay_previous(self.keep_indices)
 
     def register_stat_collection_ops(self):
         for stat_op in self.collect_stat_ops():
             tf.add_to_collection(OpStats.STAT_OP_COLLECTION, stat_op)
 
-
+    def set_keep_indices(self):
+        if self.keep_indices is None:
+            self.keep_indices = tf.Variable([], dtype=tf.int32, name="keep_indices")
+        self.keep_indices = assign(self.keep_indices, sorted_union(self.keep_indices, self.get_dimensions_to_keep()))

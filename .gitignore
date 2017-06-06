@@ -124,3 +124,5 @@ test_checkpoint_folder
 
 # Resnap code in this folder
 model/helpers/
+
+.DS_Store

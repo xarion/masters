@@ -105,3 +105,27 @@ class Deconvolution(OpPruning):
 
     def prune_output_channel(self, keep_indices):
         self.weight_tensor = self.prune(self.weight_tensor, keep_indices, axis=2)
+
+
+class FeaturePadding(OpPruning):
+    def __init__(self, beginning_pad_count, ending_pad_count, feature_count):
+        OpPruning.__init__(self)
+        self.beginning_pad_count = beginning_pad_count
+        self.ending_pad_count = ending_pad_count
+        self.feature_count = feature_count
+
+    def prune_input_channel(self, keep_indices):
+        pass
+
+    def prune_output_channel(self, keep_indices):
+        kept_ending_indices = tf.where(keep_indices >= self.beginning_pad_count + self.feature_count)
+        new_ending_pad_count = tf.reduce_sum(tf.cast(kept_ending_indices, tf.int32))
+
+        kept_beginning_indices = tf.where(keep_indices < self.beginning_pad_count)
+        new_beginning_pad_count = tf.reduce_sum(tf.cast(kept_beginning_indices, tf.int32))
+
+        assign_ending_pad_count = tf.assign(self.ending_pad_count, new_ending_pad_count)
+        assign_beginning_pad_count = tf.assign(self.beginning_pad_count, new_beginning_pad_count)
+
+        tf.add_to_collection(OpPruning.PRUNE_OP_COLLECTION, assign_beginning_pad_count)
+        tf.add_to_collection(OpPruning.PRUNE_OP_COLLECTION, assign_ending_pad_count)
