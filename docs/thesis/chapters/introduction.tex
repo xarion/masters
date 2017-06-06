@@ -38,21 +38,23 @@ Given an input, neural networks nodes have \textit{outputs}, which are real numb
 \begin{equation}
 \label{eq:variable_definitions}
 \begin{split}
-\mathbf{bold} & \text{: bold defines a vector or a matrix} \\
-rest & \text{: non-bold refers to a non-matrix} \\
 l_k & \text{: a column vector of nodes for layer $k$}\\
+m_k & \text{: the number of nodes in $l_k$}\\
 l_{k,i}  & \text{: node $i$ in $l_k$}\\
 o_{k}  & \text{: the output vector representing the outputs of nodes in $l_{k}$}\\
 o_{k,i}  & \text{: the output of $l_{k,i}$}\\
 \mathbf{w}^{(k)}  & \text{: weight matrix connecting nodes in $l_{k-1}$ to nodes in $l_{k}$} \\
 w^{(k)}_{i,j}  & \text{: the weight connecting nodes $l_{(k-1),i}$ and $l_{k,j}$} \\
-\psi_k & \text{: function to determine the outputs of $l_k$}\\
-\mathbf{x} & \text{: an input column vector } \\
-\mathbf{y} & \text{: a truth column vector (output from dataset)} \\
-\mathbf{\hat y} & \text{: an output column vector (the approximation of the truth)}  \\
-\mathbf{X} & \text{: all inputs in a dataset } \\
-\mathbf{Y} & \text{: all truths in a dataset } \\
-\mathbf{W} & \text{: all weights in a neural network}
+\mathbf{b}^{(k)}  & \text{: the bias term for $l_{k}$} \\
+\psi_k & \text{: function to determine $o_k$ given $o_{k-1}$}\\
+\sigma & \text{: activation functions} \\
+\mathbf{x} & \text{: all inputs of the dataset, consisting of $N$ data points} \\
+\mathbf{y} & \text{: all outputs of the dataset} \\
+\mathbf{\hat y} & \text{: approximation of the output}  \\
+x_n & \text{: $n$th input data ($0 < n \leq N$)} \\
+y_n & \text{: $n$th output data ($0 < n \leq N$)} \\
+\hat y_n & \text{: approximation of $y_n$ given $x_n$ ($0 < n \leq N$)}\\
+\text{FC} & \text{: stands for Fully Connected (e.g. $\psi^{(FC)}$)}
 \end{split}
 \end{equation}
 Therefore the structure of a neural network is determined by the number of layers and the functions that determine the outputs of layers.
@@ -61,61 +63,128 @@ Therefore the structure of a neural network is determined by the number of layer
     o_k = 
 \begin{cases}
     \psi(o_{k-1}), &\text{if } k\geq 1\\
-    \psi(\mathbf{x}),& k = 0\\
+    \mathbf{x},& k = 0\\
 \end{cases}
 \end{equation}
-\iffalse
-Assume a target function $f$ that we want to approximate. First, to learn to approximate this function, we will need samples. These samples are called as the \textit{dataset}. Let's assume that $f$ has two input variables represented by an input vector ($\mathbf{x}$) and a scalar output ($y$).
 
-\begin{equation*}
-f(\mathbf{x}) = y
-\end{equation*}
-\fi
 \subsection{Fully Connected Layers}
 As the name suggests, for two consecutive layers to be \textit{fully connected}, all nodes in the previous layer must be connected to all nodes in the following layer. 
 
-Let's assume two consecutive layers, $l_{k}$ and $l_{k+1}$, with shapes $m \times 1$ and $n \times 1$, respectively. For these layers to be fully connected, the weight matrix $\mathbf{w}^{(k)}$, should be of shape $m \times n$. In fully connected layers, the output of the later layer would simply be calculated as,
-$$ \psi_k(o) = o^T\mathbf{w}^{(k)} $$
-$$ o_k = \psi_k(o_{k-1}) $$
+Let's assume two consecutive layers, $l_{k-1}$ and $l_{k}$, with shapes $m_{k-1} \times 1$ and $m_k \times 1$, respectively. For these layers to be fully connected, the weight matrix $\mathbf{w}^{(k)}$, should be of shape $m_{k-1} \times m_{k}$. Most fully connected layers also include a bias term ($m$) for every node $l_k$. In fully connected layers, $o_k$ would simply be calculated using layer function $\psi^{(FC)}$.
+$$ \psi^{(FC)}_k(o_{k-1}) = o_{k-1}^T\mathbf{w}^{(k)} + \mathbf{b}^{(k)}$$
+Therefore the computational complexity of $\psi^{(FC)}$ would become
+$$\mathcal{O}(\psi^{(FC)}_k) = m_{k-1}m_{k}$$
+
+\subsection{Activation Function and Nonlinearity}
+By stacking fully connected layers, we can increase the depth of a neural network. By doing so we want to increase approximation quality of the neural network. However, the $\psi^{(FC)}$ we have defined is a linear function. Therefore if we stack multiple fully connected layers we would end up with a linear model. 
+
+To achieve non-linearity, we apply \textit{activation functions} to the results of $\psi$. There are many activation functions (such as $tanh$ or $sigmoid$) but one very commonly used activation function is $ReLU$.  
+\begin{equation}
+\label{eq:relu_definition}
+    ReLU(x) = 
+\begin{cases}
+    x, & \text{if }x \geq 0\\
+    0 &  \text{otherwise }\\
+\end{cases}
+\end{equation}
+Therefore we will redefine the fully connected $\psi^{(FC)}$ as;
+
+$$ \psi^{(FC)}_k(o) = \sigma(o^T\mathbf{w}^{(k)} + \mathbf{b}^{(k)})$$
+
+$\psi^{(FC)}$ is one of the most basic building blocks of any Neural Network. Stacking $K$ of them after the input, we can try to approximate an output given an input. To do that we will calculate the outputs of every layer, starting from the input. 
+\begin{equation*}
+\begin{split}
+o_0 &= x_n\\
+o_1 &= \psi_1^{(FC)}(o_0)\\ 
+o_2 &= \psi_2^{(FC)}(o_1)\\
+...&\\
+o_K &= \psi_1^{(FC)}(o_{K-1})\\
+\hat y &= o_K
+\end{split}
+\end{equation*}
 
 \subsection{Loss}
+To represent the quality of an approximation, we are going to use a loss (or cost) function. A good example would be the loss of a salesman. Assuming a customer who would pay at most \$10 for a given product, if the salesman sells this product for \$4, the salesman would face a loss of \$6 from his potential profit. Or if the salesman tries to sell this product for \$14, the customer will not purchase it and he will face a loss of \$10. In this example, the salesman would want to minimize the loss to earn as much as possible. 
 
-To represent the quality of an approximation, we are going to use a loss (or cost) function. A common loss function is Root Mean Square Error (RMSE). Given an approximation and a truth, using RMSE, the loss can be calculated as,
+However, most of the problems we will see are not that simple. When we face multi-dimensional data with multiple examples, we need a bit more complicated loss function. A common loss function is Root Mean Square Error (RMSE). Given some approximations ($\mathbf{\hat y}$) and corresponding outputs ($\mathbf{y}$), RMSE can be calculated as,
 \begin{equation*}
-RMSE(\mathbf{\hat y}, \mathbf{y}) = \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}
+RMSE(\mathbf{\hat y}, \mathbf{y}) = \sqrt{\frac{\sum^N_{n=1} (\hat y_n - y_n)^2 }{N}}
 \end{equation*}
-There are two common properties of loss functions. First, loss values are never negative. Second, if we compare two different approximations of $f$ using the same data points, the approximation yielding with a lower loss value is more preferable to other (excluding exceptions, such as overfitting).
+There are two common properties of loss functions. First, loss is never negative. Second, if we compare two approximations, the one with a smaller loss is better.
 
-If we assume that all our approximations are exactly the same as the output ($  \mathbf{\hat Y} =  \mathbf{Y} $), the total loss would be 0. 
+If all our approximations are exactly the same as the output ($  \mathbf{\hat y} =  \mathbf{y} $), the total loss would be 0. 
 
-\subsection{Gradient Descent}
-Since lower loss values correspond to higher quality of approximation, we are interested in optimizing $\mathbf{W}$. Therefore, we are interested in the optimal values of $\mathbf{W}$ that achieve that. 
+\subsection{Stochastic Gradient Descent}
+\todoin{Check with Bishop first, then write this section.}
+To provide better approximations, we will try to optimize our parameters (weight and bias). One common way to optimize these parameters is to use Stochastic Gradient Descent (SGD). SGD starts with some initial parameter values. It calculates the loss for a subset of data points, calculates the partial derivatives of the loss function for every parameter, and trying to minimize 
+
+Therefore, we are interested in the optimal values of $\mathbf{W}$ that achieve that. 
 One common way to optimize neural networks weights is to use Gradient Descent. Gradient descent works with iterations. In each iteration, we calculate the partial derivative of the loss function for weights. To do that, first we need to write the loss function in terms of weight variables.
 \begin{equation*}
 \begin{split}
-l &= \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}\\
+ &= \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}\\
  &= \sqrt{\frac{\sum^n_{t=1} (\hat y_t - y_t)^2 }{n}}
 \end{split}
 \end{equation*}
 
 
-\subsection{Convolution Operation}
+\subsection{Convolutional Layer}
 
-\subsection{Training}
+Assume that our input data points are defined as images. Image data is mostly 3 dimensional. We will represent the dimensions of an image as, $W \times H \times C$ for width, height and channels respectively. 
 
-\subsection{Loss}
+The convolutional layer creates $K \times K \times C$ patches from a given input. Then it multiplies this patch with a weight matrix of size $K \times K \times C \times O$ where $O$ is the number of output channels. Let's assume that we have a patch from a layer $k$ at point $(I, J)$; 
 
-\subsection{Non-Linearity}
+\todoin{$p(o_k, I,J, K)$ could also be something like $p^{(I,K)}_{k,(i.j)}$ also maybe check bishop or something to see a better definition. maybe include padding and strides as well. tell what a kernel is, define output/input channels better in the definition of a patch.}
+\begin{equation}
+\label{eq:convolution_patches}
+\begin{split}
+    p^{(I,K)}_{k,(i.j)} = &
+\begin{cases}
+    o_{k,(I-K/2+i, J-K/2+j)}, & \text{if } (0,0) < (I-K/2+i, J-K/2+j) \leq (W,H)\\
+    0 &  \text{ otherwise }\\
+\end{cases}\\ 
+&\text{where } 0 \leq i < I \text{ and } 0 \leq j < J
+\end{split}
+\end{equation}
 
-\subsection{Activations}
+$$ o_{k, (I,J)} = \psi_k^{(Conv)}() =  p\mathbf{w_k}$$
+$$ o_{k+1,(i,j)} = \psi^{(Conv)}_k(o_{k-1}) $$
+
+\section{Datasets}
+
 
 \subsubsection{MNIST}
-
-\todoin{things to be explained: FC layer, Convolution Operation, what do we mean when we say neuron/node, activation, bias, training dataset, different paddings, SVD}
-\todoin{Luc says: Like add a mathematical formulation of deep networks, how you go from NN to DNN to CNN and RNN. What are the pros and cons of these networks? Also, here I would explain all concepts that arise later (for example: what is a conv kernel, SAME padding, etc)}
 
 \section{Dependencies}
 \subsection{Tensorflow}
 In our research, we will strictly use Tensorflow \cite{abadi2016tensorflow}. \todoin{What is tensorflow, why we chose it, what are the advantages of using it, what are the limitations that come with it}
 \subsection{CIFAR-10}
 \subsection{MNIST}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
