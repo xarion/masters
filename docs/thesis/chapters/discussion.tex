@@ -18,3 +18,13 @@
 
 This section should be rich in references to similar work and background needed to interpret results. However, interpretation/discussion section(s) are often too long and verbose. Is there material that does not contribute to one of the elements listed above? If so, this may be material that you will want to consider deleting or moving. Break up the section into logical segments by using subheads. 
 \fi
+
+
+\iffalse
+
+what we couldn't do goes here
+
+Weight Sharing
+To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
+
+\fi

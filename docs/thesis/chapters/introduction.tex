@@ -26,10 +26,15 @@ As the years pass, GPUs got more and more powerful. In 2012, \cite{krizhevsky201
 
 In contrast, \cite{Szegedy:2014aa} have shown that having a good harmony within the network worked better than having more parameters. It has been supported by \cite{Canziani:2016aa}. They have shown the relation between number of parameters of a model and its top-1 classification accuracy in ILSVRC dataset. According to their report, 48 layer Inception-v3 (\cite{Szegedy_2016_CVPR}) provides better top-1 classification accuracy than 152 layer ResNet (\cite{He:2015aa}). They also show that Inception-v3 requires fewer number of floating point operations to compute results. Therefore, revealing that of providing more layers and parameters would not yield better results. 
 
-ILSVRC is one of the most famous competitions in Image Processing. Every year, the winners of this competition are a driving the research on the field. But this competition is not considering the competitive value of limiting number of operations. If we look at the models of 2016 competitors, we see that they use ensembles of models\footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. These ensembles are far from being usable in real life because they require a great amount of operations per inference. Not mentioning the number of operations from the result is misleading for the AI community and the public. It creates an unreal expectation that these models are applicable in real life. In this thesis, we want to come up with a state of the art solution that requires a low number of floating point operations per inference. Therefore, bridging the gap between expectations and reality.
+ILSVRC is one of the most famous competitions in Image Processing. Every year, the winners of this competition are a driving the research on the field. But this competition is not considering the competitive value of limiting number of operations. If we look at the models of 2016 competitors, we see that they use ensembles of models\footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. These ensembles are far from being usable in real life because they require a great amount of operations per inference. Not mentioning the number of operations from the result is misleading for the AI community and the public. It creates an unreal expectation that these models are applicable in real life. In this thesis, we want to come up with a state of the art solution that requires a low number of floating point operations per inference. Therefore, bridging the gap between expectations and reality. We will answer,
+\begin{quote}
+How can we reduce the inference complexity of Neural Networks?
+How do these modifications effect accuracy?
+\end{quote}
+First, we will briefly describe neural networks and some of their underlying building blocks. We will mention the complexities of necessary operations. Then, we will provide solutions to reduce these complexities.
 
 \section{Neural Networks}
-In this chapter, we will try to describe neural networks briefly. To keep things simple, we only are concerned with feed forward neural networks and supervised learning. We will provide some terminology and give some examples. 
+In this chapter, we will try to describe neural networks briefly. We will provide some terminology and give some examples. 
 
 Neural networks are \textit{weighted graphs}. They consist of an ordered set of \textit{layers}, where every layer is a set of \textit{nodes}. The first layer of the neural network is called the \textit{input layer}, and the last one is called the \textit{output layer}. The layers in between are called \textit{hidden layers}. In our case, nodes belonging to one layer are connected to the nodes in the following and/or the previous layers. These connections are weighted edges, and they are mostly called as \textit{weights}. 
 
@@ -72,7 +77,7 @@ As the name suggests, for two consecutive layers to be \textit{fully connected},
 Let's assume two consecutive layers, $l_{k-1}$ and $l_{k}$, with shapes $m_{k-1} \times 1$ and $m_k \times 1$, respectively. For these layers to be fully connected, the weight matrix $\mathbf{w}^{(k)}$, should be of shape $m_{k-1} \times m_{k}$. Most fully connected layers also include a bias term ($m$) for every node $l_k$. In fully connected layers, $o_k$ would simply be calculated using layer function $\psi^{(FC)}$.
 $$ \psi^{(FC)}_k(o_{k-1}) = o_{k-1}^T\mathbf{w}^{(k)} + \mathbf{b}^{(k)}$$
 Therefore the computational complexity of $\psi^{(FC)}$ would become
-$$\mathcal{O}(\psi^{(FC)}_k) = m_{k-1}m_{k}$$
+$$\mathcal{O}(\psi^{(FC)}_k) = \mathcal{O}(m_{k-1}m_{k})$$
 
 \subsection{Activation Function and Nonlinearity}
 By stacking fully connected layers, we can increase the depth of a neural network. By doing so we want to increase approximation quality of the neural network. However, the $\psi^{(FC)}$ we have defined is a linear function. Therefore if we stack multiple fully connected layers we would end up with a linear model. 
@@ -89,6 +94,8 @@ To achieve non-linearity, we apply \textit{activation functions} to the results 
 Therefore we will redefine the fully connected $\psi^{(FC)}$ as;
 
 $$ \psi^{(FC)}_k(o) = \sigma(o^T\mathbf{w}^{(k)} + \mathbf{b}^{(k)})$$
+
+Note that the activation function does not strictly belong to the definition of a fully connected layer. But for simplicity, we are going to include them in the layer functions ($\psi$).
 
 $\psi^{(FC)}$ is one of the most basic building blocks of any Neural Network. Stacking $K$ of them after the input, we can try to approximate an output given an input. To do that we will calculate the outputs of every layer, starting from the input. 
 \begin{equation*}
@@ -114,69 +121,100 @@ There are two common properties of loss functions. First, loss is never negative
 If all our approximations are exactly the same as the output ($  \mathbf{\hat y} =  \mathbf{y} $), the total loss would be 0. 
 
 \subsection{Stochastic Gradient Descent}
-To provide better approximations, we will try to optimize the neural network parameters. One common way to optimize these parameters is to use Stochastic Gradient Descent (SGD). SGD is an iterative learning method that starts with some initial (random) parameters. Given $\theta \in \mathbf{w} \cup \mathbf{b}$ to be a parameter that we want to optimize. The learning rule updating theta would be;
+To provide better approximations, we will try to optimize the neural network parameters. One common way to optimize these parameters is to use Stochastic Gradient Descent (SGD). SGD is an iterative learning method that starts with some initial (random) parameters. Given $\theta \in (\mathbf{w} \cup \mathbf{b}$) to be a parameter that we want to optimize. The learning rule updating theta would be;
 
 $$ \theta = \theta- \eta \nabla_\theta{L(f(x), y)} $$
 
 where $\eta$ is the learning rate, and $\nabla_\theta{L(f(x), y)}$ is the partial derivative of the loss in terms of given parameter, $\theta$. One iteration is completed when we update every parameter for given example(s). By performing many iterations, SGD aims to find a global minimum for the loss function, given data and initial parameters.
 
 \subsection{Convolutional Layer}
-So far we have seen the key elements we can use to create and train fully connected neural networks. To be able to apply neural networks to image inputs, we will use convolutional layers or convolution operation. Let's assume an image $i \in \mathcal{R}^{W \times H \times C}$. Convolution operation first creates a sliding window that goes through the image. We will call the contents of this sliding window with centered $(i,j)$ as a patch ($p_{(i,j)} \in \mathbb{R}^{K \times K \times C}$). Convolution operation sees every element of this patch as a node. By multiplying a weight matrix $\mathbf{w}^{(k)} \in \mathbb{R}^{K \times K \times C \times O}$ to this patch of nodes, it creates a set of output nodes $o_{(k+1),(i,j)} \in \mathbb{R}^{1 \times O}$. Those output nodes represent the features belonging to the pixel at point $(i,j)$. By performing this operation for every patch, we calculate the outputs of a convolutional layer. 
+So far we have seen the key elements we can use to create and train fully connected neural networks. To be able to apply neural networks to image inputs, we will use convolutional layers or convolution operation. Please note that we are assuming one or two dimensional convolutions with same padding. 
 
-A convolutional layer with kernel size 3 would combine the data from all neighboring pixels while calculating the output information. Therefore it's outputs can represent shapes. By adding another convolutional layer, we would combine information of neighboring shapes, therefore represent more complex shape information. By adding more convolutional layers, we can represent more and more complex shapes, or objects, or stuffs. Such networks are called convolutional neural networks (CNN). 
+Let's assume a 3 dimensional layer output $o_{k-1} \in \mathbb{R}^{W_{k-1} \times H_{k-1} \times m_{k-1}}$. Convolution operation first creates a sliding window that goes through the layer. The contents of this sliding window are patches ($p_{k-1,(I,J)} \in \mathbb{R}^{K \times K \times m_{k-1}}$). By multiplying a weight matrix $\mathbf{w}^{(k)} \in \mathbb{R}^{K \times K \times m_{k-1} \times m_k}$ with every patch, it creates a set of output nodes $o_{(k+1),(I,J)} \in \mathbb{R}^{1 \times m_k}$. Those output nodes represent the features belonging to the pixel at point $(I,J)$. By performing this operation for every patch, we calculate the outputs of a convolutional layer. While calculating the patches, we also make use of a parameter called stride, $s_k \in \mathbb{N}^+$. $s$ defines the number of vertical and horizontal indexes between each patch.
 
-The complexity of the matrix multiplication on a patch is $\mathcal(KKIO)$. Complexity of applying this operation to every patch is $\mathcal{O}(WHK^2CO)$. 
+$$ W_k = \floor*{\frac{W_{k-1}}{s_k}}$$
+$$ H_k = \floor*{\frac{H_{k-1}}{s_k}}$$
+$$ \psi_{k}^{(Conv)} : \mathbb{R}^{W_{k-1} \times H_{k-1} \times m_{k-1} } \rightarrow \mathbb{R}^{ W_k \times H_k \times m_k} $$
+$$ p_{k-1,(I,J)} \in \mathbb{R}^{K \times K \times m_{k-1}} $$
+$$ p_{k-1,(I,J)} \subset o_{k-1}$$
+$$ p_{k-1,(I,J)} = (p_{k-1,(I,J),(i,j)}) $$
+$$ p_{k-1,(I,J),(i,j)} \in \mathbb{R}^{m_k-1} $$
+$$ p_{k-1,(I,J),(i,j)} = o_{k-1,(a,b)} $$
+where
+$$ o_{k-1} = (o_{k-1,(a,b)})$$
+$$ a = Is + (i - \floor*{K/2}) $$
+$$ b = Js + (j - \floor*{K/2}) $$
+and 
+$$ 0 < I \leq W_k$$
+$$ 0 < J \leq H_k$$
 
-\todoin{shall we provide more details?}
-
-\iffalse
-The convolutional layer creates $K \times K \times C$ patches from a given input. Then it multiplies this patch with a weight matrix of size $K \times K \times C \times O$ where $O$ is the number of output channels. Let's assume that we have a patch from a layer $k$ at point $(I, J)$; 
-
-\todoin{$p(o_k, I,J, K)$ could also be something like $p^{(I,K)}_{k,(i.j)}$ also maybe check bishop or something to see a better definition. maybe include padding and strides as well. tell what a kernel is, define output/input channels better in the definition of a patch.}
-\begin{equation}
-\label{eq:convolution_patches}
-\begin{split}
-    p^{(I,K)}_{k,(i.j)} = &
-\begin{cases}
-    o_{k,(I-K/2+i, J-K/2+j)}, & \text{if } (0,0) < (I-K/2+i, J-K/2+j) \leq (W,H)\\
-    0 &  \text{ otherwise }\\
-\end{cases}\\ 
-&\text{where } 0 \leq i < I \text{ and } 0 \leq j < J
-\end{split}
-\end{equation}
-
-$$ o_{k, (I,J)} = \psi_k^{(Conv)}() =  p\mathbf{w_k}$$
-$$ o_{k+1,(i,j)} = \psi^{(Conv)}_k(o_{k-1}) $$
-\fi
+$$\psi_{k}^{(Conv)}(o_{k-1}) = (\sigma(p_{k-1,(I,J)} \mathbf{w}^{(k)} + \mathbf{b}^{(k)})) $$
 
 
 \subsection{Pooling}
-Pooling is a way of reducing the dimensionality of an image. Depending on the task, one may use from different pooling methods. Pooling methods create patches of size $k$ that are distant from each other by $s$ pixels in horizontally and vertically. $s$ is called the stride of pooling and $k$ is referred as the kernel size. For example, pooling an image with $W \times H \times C$ dimensions with strides of 2 would result with an image of dimensions $W/2 \times H/2 \times C$. Pooling methods do not change the amount of channels the input has. But they choose values for the channels based on the pooling method.
+Pooling is a way of reducing the dimensionality of an output. Depending on the task, one may choose from different pooling methods. Pooling methods also create patches $p_{k-1,(I,J)} \in \mathbb{R}^{K \times K \times m_{k-1}}$ with strides $s$. But this time, instead of applying a weight, bias and activation function, they apply different functions. 
+The function that we will make use of is $ M : \mathbb{R}^{K \times K \times m} \rightarrow \mathbb{R}^{m}$. By defining different variations of M, we will define \textit{max pooling} and \textit{average pooling}.
+\subsubsection{Max Pooling}
+Max pooling takes the maximum value in a channel within the patch.
+$$ M^{(max)}(p) = \{max(\{p_{i,j,l} \ |\  i \in [1, \ldots, K],  j \in [1, \ldots, K] \}\}) \ |\  l \in [1, \ldots, m] \} $$
+\subsubsection{Average Pooling}
+Average pooling averages the values within the patch per channel. 
+$$ M^{(avg)}(p) = \{\sum_{i=1}^{K}\sum_{j=1}^{K}\frac{p_{i,j,m}}{K^2} \ | \  l \in [1, \ldots, m] \} $$
 
-Average pooling averages the values within the patch per channel. Max pooling takes the maximum value in a channel within the patch. Global Average Pooling takes the whole image as 1 patch and applies method max/average pooling on that 1 patch. Therefore returns only a matrix of dimensions $1 \times 1 \times C$.
+
 
 \section{Efficient Operations}
-In this section we are going to look at some alternatives to convol
+In this section we are going to look at some ways to reduce the computational complexities of fully connected layers and convolutional layers. 
 
-ion operation with better complexity.
+\section{Factorization}
+Factorization is approximating a weight matrix using smaller matrices. This has interesting uses with Neural Networks. Assume that we have a fully connected layer $k$. Using factorization, we can approximate $\mathbf{w}^{(k)} \in \mathbb{R}^{m_{k-1} \times m_k}$ using two smaller matrices, $U_{\mathbf{w}^{(k)}} \in \mathbb{R}^{m_{k-1} \times n}$ and $V_{\mathbf{w}^{(k)}} \in \mathbb{R}^{n \times m_{k}}$. If we can find matrices such that $U_{\mathbf{w}^{(k)}}V_{\mathbf{w}^{(k)}} \approx \mathbf{w}^{(k)}$, we can rewrite, 
+$$\psi^{(FC)}_k(o) \approx \psi'^{(FC)}_k(o) = \sigma(o^T U_{\mathbf{w}^{(k)}}V_{\mathbf{w}^{(k)}} +\mathbf{b}^{(k)})$$
+Therefore, we can reduce the complexity of layer $k$ by setting $n$. As we have mentioned before, $\mathcal{O}(\psi_k^{(FC)}) = \mathcal{O}(m_{k-1}m_k)$. When we approximate this operation, the complexity becomes, 
+$$\mathcal{O}(\psi'^{(FC)}_k) = \mathcal{O}(n(m_{k-1}+m_k))$$
+Therefore, if there is a good enough approximation, satisfying $n < \frac{m_{k-1}m_k}{m_{k-1}+m_k}$, we can reduce the complexity of a fully connected layer without effecting the results.
+One thing that's similar between a convolutional layer and a fully connected layer is that both are performing matrix multiplication to calculate results. The only difference is, a convolutional layer is possibly performing this matrix multiplication many times. Therefore the same technique can be used with convolutional layers. 
 
-\subsection{1D Convolutions}
-Convolution kernels could be decomposed into smaller operations. For example using SVD, we can decompose the convolution kernel into the multiplication for two smaller kernels, and by applying these kernels consequently, we can approximate the convolution operation with fewer floating point operations. Instead of doing separating learned convolutions, we are going to use the method introduced in \cite{alvarez2016decomposeme}. This method forces the separability of convolution operation as a hard constraint. 
+
+\todoin{Luc says: If XW is not exactly equal XOP, how will you deal with this?}
+\subsection{SVD}
+Singular Value Decomposition (SVD) (\cite{golub1970singular}), is a factorization method that we can use to calculate this approximation. SVD decomposes the weight matrix $\mathbf{w}^{(k)} \in \mathbb{R}^{m_{k-1} \times m_k}$ into $3$ parts. 
+$$ \mathbf{w}^{(k)} = USV $$
+Where, $U \in \mathbb{R}^{m_{k-1} \times m_{k-1}}$ and $V\in \mathbb{R}^{m_{k} \times m_k}$. And $S \in \mathbb{R}^{m_{k-1} \times m_k}$ is a rectangular diagonal matrix. The diagonal values of $S$ are called as the singular values of $M$. Selecting the $n$ highest values from $S$ and corresponding columns and rows from $U$ and $V$, respectively, lets us create a \textit{low-rank decomposition} of $\mathbf{w}^{(k)}$. 
+$$ \mathbf{w}^{(k)} \approx U'S'V' $$
+where $U' \in \mathbb{R}^{m_{k-1} \times n}$, $V' \in \mathbb{R}^{n \times n}$, and $S' \in \mathbb{R}^{n \times m_k}$. By choosing a sufficiently small $n$ value and setting $U_{\mathbf{w}^{(k)}}=U'S'$ and $V_{\mathbf{w}^{(k)}} = V'$, we can approximate the weights, and reduce the complexity of a layer.
+
+\subsection{Weight Sharing}
+Weight sharing assumes we have a weight values for a layer, $\mathbf{W}^{(k)} \in \mathbb{R}^{a}$. Instead of having a weight matrix, we have a matrix of indices $d^{(k)} \in \mathbb{N}^{m_{k-1} \times m_k}$ satisfying $d^{(k)}_{i,j} < a$. By defining $\mathbf{w}^{(k)}_{i,j} = \mathbf{W}^{(k)}_{d^{(k)}_{i,j}}$ and defining a sufficiently small number of elements, we can compose the weights using a limited number of real numbers and some natural number indices. If we choose the size of this real numbers set, 
+
+\todoin{give some examples here, you're saying some papers.}
+
+\section{Convolution Operation Alternatives}
+
+\subsection{Convolutional Composition}
+As  \cite{alvarez2016decomposeme} explains, a convolution operation with a weight matrix $\mathbf{w}^{(k)} \in \mathbb{R}^{K \times K \times m_{k-1} \times m_k}$, could be composed using two convolution operations with kernels $\mathbf{w}^{(k_1)} \in \mathbb{R}^{1 \times K \times m_{k-1} \times n}$ and $\mathbf{w}^{(k_2)} \in \mathbb{R}^{K \times 1 \times n \times m_k}$. Their technique, instead of factorizing learned weight matrices, aims to learn the factorized kernels. They also aim to increase non-linearity by adding bias and activation function in between. Therefore defining;
+
+$$ \psi_{(k)}^{(ConvCompose)}(o) = \psi_{(k_2)}^{(Conv)}(\psi_{(k_1)}^{(Conv)}(o))$$
+
+This method forces the separability of the weight matrix as a hard constraint. By performing such an operation, they convert the computational complexity of a convolution operation from $\mathcal{O}(KKm_{k-1}m_k)$ to $\mathcal{O}(Kn(m_{k-1} +m_{k}))$. Suggesting that, if we can find an $n$ satisfying $\frac{\mathcal{O}(KKm_{k-1}m_k)}{\mathcal{O}(Kn(m_{k-1} +m_{k})} > 1$, we can reduce the complexity of this layer. This equation can be rewritten as;
+$$ \frac{Km_{k-1}m_k}{m_{k-1} + m_k} > n$$
+
 
 \subsection{Separable Convolutions}
-As the name suggests, these operations separate the standard convolution operation into two parts. These parts are called Depthwise convolutions and Pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. Pointwise convolution correlates these output channels with each other, or in other words mixes them, by applying a matrix multiplication. For example, let's assume we have an input with 3 channels, applying a Depthwise convolution with 4 filters to that, we would get 12 output channels. Then applying a Pointwise convolution to that, we correlate these 12 output channels to create new output channels. 
+Separable convolutions separate the standard convolution operation into two parts. These parts are called depthwise convolutions and pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. 
+\subsubsection{Depthwise Convolution}
+Given a patch $p \in \mathbb{R}^{K \times K \times m}$, depthwise convolution has a weight matrix $\mathbf{w}^{(k, depthwise)} \in \mathbb{R}^{K \times K \times m}$. For easiness, let's assume a variant of $p$ and $\mathbf{w}^{(k, depthwise)}$ as in,
+$$\mathbf{w}'^{(k, depthwise)}_m = \{ \mathbf{w}^{(k, depthwise)}_{i,j,m} \ | \ i \in [1, \ldots, K], j \in [1, \ldots, K] \}$$
+$$p'_m = \{ p_{i,j,m} \ | \ i \in [1, \ldots, K], j \in [1, \ldots, K] \}$$
+Therefore, depthwise convolution operation can be defined as, 
+$$\psi^{(k, depthwise)}(p) = \{ p'_m\mathbf{w}'^{(k, depthwise)}_m \ | \ i \in [1, \ldots, m] \} $$
+\subsubsection{Pointwise Convolution}
+Pointwise convolution is the regular convolution operation with kernel size 1 ($K = 1$). 
+
+
 
 To describe the complexity of this operation, let's assume that we have a separable convolution with kernel size $N$, input channels $K$, depthwise filters $I$ and output channels $L$. First operation will be applying $L$ filters with size $N \times N$ to $K$ input channels, one by one. The number of operations we need for this operation is, $IKN^2$. Second operation will be multiplying $1 \times IK$ output with $IK \times L$ correlation matrix, requiring $IKL$ floating point operations. In total we need $IK(N^2+L)$ operations. 
 
 
-Normally convolution operations are defined 2 dimensional ($2D$). That is, kernel sizes are ($2D$). For example convolutions we have used in Section \ref{sec:activation-based-pruning-convolution} are $2D$, their kernel sizes are $3 \times 3$. With this method, we are aiming to construct a $N \times N$ convolution operation as a combination two convolution operations. The first convolution has kernel size $1 \times N$ and the following convolution has $N \times 1$, or vice versa. Looking back at the experiment we did in  Section \ref{sec:activation-based-pruning-convolution}, instead of applying one $3 \times 3$ convolution, we are talking about applying one $1 \times 3$ convolution followed by a $3 \times 1$ convolution. 
-
-The amount of speed up can be approximated using the number of floating point operations. A convolution operation can be seen as a matrix multiplication applied to consequent subsections of an image. To visualize this, let's assume that we have a convolution operation with kernel size $N$, input channels $K$ and output channels $L$. Assuming we are applying that operation to a $N \times N$ image patch with $K$ channels, our operation can be simplified as multiplying this $N*N*K$ vector with $N*N*K \times L$ matrix. The number of floating point operations required to execute this operation are $N^2KL$. When composed as two $1D$ compositions, this operation will be represented with two $1D$ convolutions. First convolution is multiplying vector $N*K$ with matrix $N*K \times P$ and the second convolution is multiplying vector $N*P$ with matrix $N*P \times L$. As you can see we have introduced the variable $P$ as the intermediate output of the first convolution. Number of floating point operations required for these operations are, $NLP$ and $NPK$. And summing them up, we can say we need $NP(L + K)$ operations in total. To see if this decomposition is reducing the number of operations, we could basically try to define a $P$ satisfying $\frac{NP(L+K)}{N^2KL} < 1$. Therefore,
-\begin{equation*}
-1 \leq P < \frac{NKL}{L+K}
-\end{equation*}
-
-To show the validity of this method, we have conducted two experiments. 
 
 \section{Pruning}
 Pruning aims to reduce the number of operations by deleting the parameters that has low or no impact in the result. Studies show that applying this method in an ANN is effective in reducing the model complexity, improving generalization, and they are effective in reducing the required training cycles. In our experiments we will try to reproduce these effects.
@@ -204,22 +242,6 @@ Activation based pruning, works by looking at individual values in layers, and p
 In theory, convolution operation is a matrix multiplication applied on a sliding window. Thus, counting the output feature activations of a convolution operation, we can apply activation based pruning. 
 
 \subsection{Second Order Derivatives (Fischer Information Matrix)}
-
-\section{Factorization}
-Using Factorization methods, we can decompose a matrix into smaller different matrices. Some factorization methods can be used to reduce the dimensionality of these smaller matrices while approximating the original matrix. This has interesting uses with Neural Networks. Assume that we have a matrix multiplication operation. We are multiplying a random input $\mathbf{X}$ with a fixed weight matrix $\mathbf{W}$. Let's say $\mathbf{X}$ is $K \times N$ and $\mathbf{W}$ is $N \times M$. The matrix multiplication of these two matrices has the complexity of $KNM$. If we can successfully decompose $\mathbf{W}$ to the composition of two matrices $\mathbf{O}$ and $\mathbf{P}$ with dimensions $N \times L$ and $L \times M$, respectively, we can rewrite our matrix multiplication operation as; $\mathbf{X}\mathbf{W} \approx \mathbf{X}\mathbf{O}\mathbf{P}$. The new complexity of this operation would be $KNL + NLM = NL(K+M)$. If we can find a decomposition where $L$ is sufficiently small that successfully approximates the matrix $\mathbf{W}$ and satisfies $NL(K+M) < KNM$, we can reduce the complexity of this matrix multiplication.
-\todoin{draw some figures explaining how this happens}
-\todoin{Luc says: If XW is not exactly equal XOP, how will you deal with this?}
-\subsection{SVD}
-Using SVD we can make this approximation. SVD decomposes the a matrix into 3 parts. 
-\todoin{Talk what SVD does, what are the decomposed matrices, what are the singular values and how they are relevant to the approximation of $\mathbf{W}$. Show your experiments and results from when you ran the experiments.} 
-
-
-\subsection{Weight Sharing}
-Weight sharing assumes we have a limited set of weights, and when we are representing values, instead of representing the value itself, we represent the indices to weights. This operation is used in some papers successfully to reduce model size considerably. To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
-\todoin{give some examples here, you're saying some papers.}
-
-\subsection{Other Factorization Methods}
-
 
 \section{Quantization}
 
