@@ -1,123 +1,114 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
+import os
+import sys
+import tarfile
 
-"""A binary to train CIFAR-10 using a single GPU.
-
-Accuracy:
-cifar10_train.py achieves ~86% accuracy after 100K steps (256 epochs of
-data) as judged by cifar10_eval.py.
-
-Speed: With batch_size 128.
-
-System        | Step Time (sec/batch)  |     Accuracy
-------------------------------------------------------------------
-1 Tesla K20m  | 0.35-0.60              | ~86% at 60K steps  (5 hours)
-1 Tesla K40m  | 0.25-0.35              | ~86% at 100K steps (4 hours)
-
-Usage:
-Please see the tutorial and website for how to download the CIFAR-10
-data set, compile the program and train the model.
-
-http://tensorflow.org/tutorials/deep_cnn/
-"""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import time
-from datetime import datetime
-
-import cifar10
 import tensorflow as tf
+from six.moves import urllib
 
-FLAGS = tf.app.flags.FLAGS
+from experiments.structures.separable_convolutions.cifar10.cifar10 import Cifar10Model
 
-tf.app.flags.DEFINE_string('train_dir', './train_logs_nxn',
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 1000000,
-                            """Number of batches to run.""")
-tf.app.flags.DEFINE_boolean('log_device_placement', False,
-                            """Whether to log device placement.""")
-tf.app.flags.DEFINE_integer('log_frequency', 10,
-                            """How often to log results to the console.""")
+flags = tf.app.flags
+FLAGS = flags.FLAGS
 
+flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
 
-def train():
-    """Train CIFAR-10 for a number of steps."""
-    with tf.Graph().as_default():
-        global_step = tf.contrib.framework.get_or_create_global_step()
+# Preprocessing Flags (only affect training data, not validation data)
+CHECKPOINT_FOLDER = "checkpoints_dec"
+CHECKPOINT_STEP = 10000
+CHECKPOINT_NAME = "kernel-composed-cifar"
 
-        # Get images and labels for CIFAR-10.
-        images, labels = cifar10.distorted_inputs()
-
-        # Build a Graph that computes the logits predictions from the
-        # inference model.
-        logits = cifar10.inference(images)
-
-        # Calculate loss.
-        loss = cifar10.loss(logits, labels)
-
-        # Build a Graph that trains the model with one batch of examples and
-        # updates the model parameters.
-        train_op = cifar10.train(loss, global_step)
-
-        class _LoggerHook(tf.train.SessionRunHook):
-            """Logs loss and runtime."""
-
-            def begin(self):
-                self._step = -1
-                self._start_time = time.time()
-
-            def before_run(self, run_context):
-                self._step += 1
-                return tf.train.SessionRunArgs(loss)  # Asks for loss value.
-
-            def after_run(self, run_context, run_values):
-                if self._step % FLAGS.log_frequency == 0:
-                    current_time = time.time()
-                    duration = current_time - self._start_time
-                    self._start_time = current_time
-
-                    loss_value = run_values.results
-                    examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
-                    sec_per_batch = float(duration / FLAGS.log_frequency)
-
-                    format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
-                                  'sec/batch)')
-                    print(format_str % (datetime.now(), self._step, loss_value,
-                                        examples_per_sec, sec_per_batch))
-
-        with tf.train.MonitoredTrainingSession(
-                checkpoint_dir=FLAGS.train_dir,
-                hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
-                       tf.train.NanTensorHook(loss),
-                       _LoggerHook()],
-                config=tf.ConfigProto(
-                    log_device_placement=FLAGS.log_device_placement)) as mon_sess:
-            while not mon_sess.should_stop():
-                mon_sess.run(train_op)
+DATA_DIR = "./data"
+DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
 
-def main(argv=None):  # pylint: disable=unused-argument
-    tf.set_random_seed(125)
-    cifar10.maybe_download_and_extract()
-    if tf.gfile.Exists(FLAGS.train_dir):
-        tf.gfile.DeleteRecursively(FLAGS.train_dir)
-    tf.gfile.MakeDirs(FLAGS.train_dir)
-    train()
+class Train:
+    def __init__(self):
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+
+        self.graph = tf.Graph()
+
+        with self.graph.as_default():
+            self.maybe_download_and_extract()
+            self.model = Cifar10Model(training=True, batch_size=FLAGS.batch_size)
+
+        self.session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True),
+                                  graph=self.graph)
+
+    def train(self):
+        with self.graph.as_default():
+            self.session.run(tf.variables_initializer(tf.local_variables()))
+            merged = tf.summary.merge_all()
+            train_writer = tf.summary.FileWriter("summaries/train_dec", self.graph)
+            test_writer = tf.summary.FileWriter("summaries/test_dec", self.graph)
+            saver = tf.train.Saver(max_to_keep=2)
+
+            latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
+            self.session.run(tf.variables_initializer(tf.local_variables()))
+
+            if latest_checkpoint:
+                self.log("loading from checkpoint file: " + latest_checkpoint)
+                saver.restore(self.session, latest_checkpoint)
+            else:
+                self.log("checkpoint not found, initializing variables.")
+                self.session.run(tf.variables_initializer(tf.global_variables()))
+
+            coord = tf.train.Coordinator()
+            threads = tf.train.start_queue_runners(sess=self.session, coord=coord)
+            try:
+                while not coord.should_stop():
+                    m, _, loss, step, = self.session.run([merged,
+                                                          self.model.train_step,
+                                                          self.model.loss,
+                                                          self.model.global_step],
+                                                         feed_dict={self.model.do_validate: False})
+
+                    train_writer.add_summary(m, step)
+                    m, top1, = self.session.run([merged, self.model.top_1_accuracy],
+                                                feed_dict={self.model.do_validate: True})
+                    test_writer.add_summary(m, step)
+
+                    if step % CHECKPOINT_STEP == 0:
+                        saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
+            except tf.errors.OutOfRangeError:
+                self.log('Done training -- epoch limit reached')
+            finally:
+                coord.request_stop()
+
+            coord.join(threads)
+            self.session.close()
+
+    @staticmethod
+    def log(message):
+        sys.stdout.write(message + "\n")
+        sys.stdout.flush()
+        pass
+
+    @staticmethod
+    def maybe_download_and_extract():
+        """Download and extract the tarball from Alex's website."""
+        dest_directory = "./data"
+        if not os.path.exists(dest_directory):
+            os.makedirs(dest_directory)
+        filename = DATA_URL.split('/')[-1]
+        filepath = os.path.join(dest_directory, filename)
+        if not os.path.exists(filepath):
+            def _progress(count, block_size, total_size):
+                sys.stdout.write('\r>> Downloading %s %.1f%%' % (filename,
+                                                                 float(count * block_size) / float(total_size) * 100.0))
+                sys.stdout.flush()
+
+            filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
+            print()
+            statinfo = os.stat(filepath)
+            print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+        extracted_dir_path = os.path.join(dest_directory, 'cifar-10-batches-bin')
+        if not os.path.exists(extracted_dir_path):
+            tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+
+
+def main(_):
+    t = Train()
+    t.train()
 
 
 if __name__ == '__main__':

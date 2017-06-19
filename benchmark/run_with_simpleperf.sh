@@ -8,8 +8,8 @@ ASSETS=/Users/erdicalli/dev/workspace/masters/benchmark/android/assets
 TF_HOME=/Users/erdicalli/dev/workspace/tensorflow
 
 
-echo input_name=Placeholder:0 > benchmark.properties
-echo output_shape=1000 >> benchmark.properties
+echo input_name=Placeholder_1:0 > benchmark.properties
+echo output_shape=1001 >> benchmark.properties
 echo number_of_runs=-1 >> benchmark.properties
 echo duration_milliseconds=20000 >> benchmark.properties
 echo model_graph_file=file:///android_asset/model.pb >> benchmark.properties

@@ -36,18 +36,22 @@ In both experiments, we test no regularization, L1 regularization and L2 regular
 In case of two nodes in one layer, if the weights connecting to them are proportional, it may not be possible to prune one of them. To prevent that, we introduce a little bit distortion, forcing the differentiation of features represented by nodes. 
 
 \subsection{Activations}
-We test 3 pruning configurations for activation counts, activation values and activation correlations. 
+We test 2 pruning configurations for activation counts, activation values 
 \todoin{we need proper mathematical notations to be able to describe these properly. We need to be able to define all training samples as a set and as individuals.}
 
 \subsubsection{Activation Counts}
-We count the ReLU activations per node. Using this information we determine which nodes are necessary.
+We count the ReLU activations per node. Using this information we determine which nodes are not used. We set a range using the mean and variance of activation counts. We prune the nodes outside this range.
 
 \subsubsection{Activation Values}
-We collect statistics about activation values per node. Using this information we determine which nodes are necessary.
+We collect statistics about activation values per node. Using this information we determine which nodes are more important for the results by calculating the variance per node and removing the low variance ones regardless of the mean value.
 
+\todoin{find the reference papers for previous two methids}
+
+\iffalse
 \subsubsection{Activation Correlation}
-We collect statistics about activation correlations to see which nodes are activated together most of the times. Using this information we determine which nodes represent similar features. 
-
+We also collect statistics about activation correlations to see which nodes are activated together most of the times. Using this information we determine which nodes represent similar features. 
+\todoin{i have removed that because we haven't tested it properly}
+\fi
 
 \section{Convolution Operation Alternatives}
 In general, convolution operations are expensive. In this section, we experiment with \textit{kernel composition} and \textit{separable convolutions} to see which one is the better alternative to regular convolutions. To see the differences between both operations, we ran two experiments for each. One classifying MNIST dataset, the other classifying CIFAR10 dataset.
@@ -76,10 +80,17 @@ By changing $\psi_{(k)}^{(Conv)}$ with $\psi_{(k)}^{(ConvCompose)}$ and $\psi_{(
   \caption{Separable Resnet-34. Branching lines represent residual connections, dashed ones are padded with zeros to match the number of channels. If s=2, depthwise convolution is ran with strides of two and residual branch is average pooled with strides 2 and kernel size 2. ReLU and Batch Normalization operations are hidden.}
   \label{fig:model}
 \end{figure}
-\section{Separable Resnet}
-Inspired by ResNet (\cite{He:2015aa}, ), we have created a convolutional neural network with residual connections. In Figure \ref{fig:model} we show the architecture of our neural network. 
 
-\subsection{Design Choices}
+\subsection{Non-Linearity in Separable Convolutions}
+\cite{howard2017mobilenets} proposed that, adding batch normalization and ReLU activations between depthwise and pointwise convolutions would increase the model accuracy. To test that we ran the previous experiment comparing non-linear separable convolutions and separable convolutions.
+
+
+
+\section{Separable Resnet}
+Inspired by ResNet (\cite{He:2015aa}, \cite{he2016identity}), we have created a convolutional neural network with residual connections. In Figure \ref{fig:model} we show the architecture of our neural network. 
+
+
+\subsection{Model Choices}
 \begin{figure}
 \vspace{-65px}
 \begin{center}
@@ -93,10 +104,25 @@ Inspired by ResNet (\cite{He:2015aa}, ), we have created a convolutional neural 
 \item Except for the first convolutional operation, we have replaced every convolution layer with a separable convolution layer. The first layer has 3 input and 16 output channels. Therefore, for this layer the number of FLOP for a convolution operation ($K*K*m_{k-1}*m_k = 3*3*3*16 = 432$) is not sufficiently higher than a separable convolution ($K*K*m_{k-1} + m_{k-1}m_k = 3*3*3 + 3*16=75$). But for this layer, separable convolution comes with a disadvantage. By definition, it applies a depthwise convolution for color channels separately. We believe that the feature representations of the input are highly dependent on the color channels, therefore we argue that applying a depthwise convolution without mixing the colors is inefficient.
 \item ResNet-34 starts with a $7 \times 7$ convolutional kernel with strides of $2$. It is followed by a pooling layer with strides of 2. In our model we chose not to reduce the image size that early. We think that these two layers with strides of $2$ are used to speed up the network and kernel size 7 is used to minimize the loss of information. We argue that this early application of strides will lead to loss of information. 
 \item As \cite{he2016identity} proposed, we are using full pre-activation residual connections. See Figure \ref{fig:full-preactivation}.
+\item In \cite{He:2015aa}, ResNet-34 starts with a $7 \times 7$ convolution with strides of two and it is followed by max-pooling layer with strides of two and kernel size 2. If we think about this design choice, we see that the kernel size choice ($7 \times 7$) is to minimize the loss of information caused by two layers with strides of two. From another point of view, those two layers decrease the image size to $56 \times 56$ immediately. This decreases the complexity of future layers, therefore speeds up the computation. When we apply the previous changes, the first convolutional layer becomes very complex compared to the whole network. To prevent that we propose a different first layer. We propose to change the first convolutional kernels from $7 \times 7$ to $3 \times 3$ and halve the output channels. Then, before applying the max pooling layer, we apply a $3 \times 3$ dephtwise convolution that multiplies the number of channels with two. Then we apply a $1 \times 1$ convolution (pointwise) to that.  By doing so we reduce the complexity of these layers about four times. We ran experiments comparing the proposal and original.
 \end{itemize}
 
 \subsection{Training}
-We train our network using CIFAR-10 dataset. We divided the dataset for 50.000 training images and 10.000 validation images. We use momentum optimizer with momentum $0.9$ and learning rates $0.1$, $0.01$, $0.001$ for steps $0$ to $40.000$, $40.000$ to $60.000$ and $60.000$ to $80.000$ respectively. We have defined the loss as SCE of the truth and prediction with an addition of L2 norm of weights multiplied by $0.0002$. We trained our model using the training images for $80.000$ steps with batch size $128$. 
+We train our network using CIFAR-10 and ImageNet datasets. 
+
+\subsubsection{CIFAR-10}
+We divided the dataset for 50.000 training images and 10.000 validation images. We used momentum optimizer with momentum $0.9$ and learning rates $0.1$, $0.01$, $0.001$ for steps $0$ to $40.000$, $40.000$ to $60.000$ and $60.000$ to $80.000$ respectively. We have defined the loss with SCE of the truth and prediction, with an addition of L2 norm of weights multiplied by $0.001$. We trained our model using the training images for $80.000$ steps with batch size $128$. 
+
+We preprocess the images using the routines defined in tensorflow tutorials\footnote{\url{https://github.com/tensorflow/models/tree/master/tutorials/image/cifar10}}\footnote{\url{https://www.tensorflow.org/tutorials/deep\_cnn\#cifar-10\_model}}. We start by taking $24 \times 24$ random crops and then we randomly flip the image to left or right. Then we randomly change the brightness and contrast. Then we normalize this image by subtracting the mean and dividing by variance by using a method called per\_image\_standardize.
+
+For CIFAR-10 training, we make some changes in our model. Since we have defined our input as a $24 \times 24$ image, we can apply a total of three strided ($s2$) convolutions. After three strided convolutions our image becomes of dimensions $3 \times 3$. After this point for our convolutions to make sense, we can't apply strided convolutions until we apply global average pooling. Therefore, we remove the strides from green and pink blocks in Figure \ref{fig:model} and we don't multiply the number of channels by two. 
+
+We train our model with CIFAR-10 to be able to verify our configuration before we train on ImageNet. 
+
+\subsubsection{ImageNet}
+We trained our model in ImageNet training dataset. We used momentum optimizer with momentum $0.9$ and learning rates $0.01$, $0.001$, $0.0001$, $0.00001$ for steps $0$ to $150.000$, $150.000$ to $300.000$, $300.000$ to $500.000$ and $500.000$ to $600.000$ respectively. We have defined the loss with SCE of the truth and prediction, with an addition of L2 norm of weights multiplied by $0.001$. We train our model using the training images for $600.000$ steps with batch size $128$.
+
+We preprocess images using the routines defined for open sourced tensorflow implementation of inception network\footnote{\url{https://github.com/tensorflow/models/blob/master/slim/preprocessing/inception_preprocessing.py}}. We start by creating a new random bounding box overlapping with the original bounding box and make sure that 0.1 of the bounding box is inside our new bounding box. Then we crop this new bounding box and resize it using bilinear resizing algorithm. Then we randomly flip it to left or right. Then we distort the colors using random brightness and saturation. Then we normalize this input to the range of $[-1,1]$ by subtracting 0.5 and multiplying by 2. 
 
 \subsection{Pruning Nodes}
 \subsubsection{Pruning Residual Connections}
@@ -114,5 +140,57 @@ We factorize the trained and pruned model. Using SVD we try to decompose the con
 \subsection{Quantization}
 We quantize the weights from 32-bits to 8-bit and run performance and accuracy benchmarks.
 
+\section{Benchmarking}
+We benchmark our models on a \textit{One Plus X}\footnote{\url{https://oneplus.net/x/specs}} mobile device, equipped with a \textit{Snapdragon 801}\footnote{\url{https://www.qualcomm.com/products/snapdragon/processors/801}} chipset. Our benchmarks consist of running consecutive inferences on a model, for a period of time. While those inferences are running, we collect hardware statistics using simpleperf\footnote{\url{https://android.googlesource.com/platform/prebuilts/simpleperf/}}. Simpleperf lets us collect the hardware level performance statistics for a given process.
 
+Our benchmarking app uses a static input image (with dimensions depending on the model). So that we can ignore the overhead of pre-processing. Also, we perform no post-processing. Doing so, we try to avoid the effects of any other computation that could change the benchmark results. 
+
+We ran this benchmarking tool for various models. Since running the benchmark doesn't require a trained network, we could easily generate multiple models and benchmark them. These models include; Inception-Resnet v2 (\cite{DBLP:journals/corr/SzegedyIV16}), Inception v1 (\cite{Szegedy:2014aa}), Inception v2 (\cite{Szegedy:2014aa}), Inception v3 (\cite{Szegedy_2016_CVPR}), Inception v4 (\cite{DBLP:journals/corr/SzegedyIV16}), VGG-19 (\cite{Simonyan:2014aa}), ResNet-50, ResNet-101, ResNet-152 and ResNet-200 (\cite{He:2015aa}, \cite{he2016identity}) and Mobilenet (\cite{howard2017mobilenets}).  
+
+
+\iffalse
+
+\begin{verbatim}
+Performance counter statistics:
+
+     2,589,237,398  L1-dcache-loads           # 940.825 M/sec       (14%)
+                 0  L1-dcache-load-misses     # 0.000 /sec          (100%)
+     3,393,233,002  L1-dcache-stores          # 980.415 M/sec       (17%)
+                 0  L1-dcache-store-misses    # 0.000 /sec          (100%)
+     2,404,509,748  L1-icache-loads           # 576.568 M/sec       (21%)
+                 0  L1-icache-load-misses     # 0.000 /sec          (100%)
+     2,919,824,326  L1-icache-stores          # 597.244 M/sec       (24%)
+                 0  L1-icache-store-misses    # 0.000 /sec          (100%)
+     5,798,305,546  dTLB-loads                # 1.023 G/sec         (28%)
+     5,037,941,181  dTLB-stores               # 1.024 G/sec         (25%)
+        68,593,055  iTLB-loads                # 16.289 M/sec        (21%)
+        56,479,236  iTLB-stores               # 16.014 M/sec        (18%)
+       337,848,194  branch-loads              # 121.453 M/sec       (14%)
+                 0  branch-load-misses        # 0.000 /sec          (100%)
+       408,888,494  branch-stores             # 115.616 M/sec       (18%)
+                 0  branch-store-misses       # 0.000 /sec          (100%)
+                 0  node-loads                # 0.000 /sec          (21%)
+                 0  node-load-misses          # 0.000 /sec          (100%)
+                 0  node-stores               # 0.000 /sec          (25%)
+                 0  node-store-misses         # 0.000 /sec          (100%)
+                 0  node-prefetches           # 0.000 /sec          (28%)
+                 0  node-prefetch-misses      # 0.000 /sec          (100%)
+    26,196,665,969  cpu-cycles                # 3.754399 GHz        (35%)
+    18,807,785,910  instructions              # 3.014 G/sec         (31%)
+       506,029,677  branch-instructions       # 91.660 M/sec        (28%)
+        13,950,967  branch-misses             # 2.897 M/sec         (24%)
+    15,055,849,062  bus-cycles                # 3.623 G/sec         (21%)
+                 0  stalled-cycles-frontend   # 0.000 /sec          (14%)
+                 0  stalled-cycles-backend    # 0.000 /sec          (14%)
+  47497.934289(ms)  cpu-clock                 #                     (100%)
+  47497.483193(ms)  task-clock                # 2.373245 cpus used  (100%)
+         1,889,335  page-faults               # 94.405 K/sec        (100%)
+            30,549  context-switches          # 1.526 K/sec         (100%)
+             1,481  cpu-migrations            # 74.002 /sec         (100%)
+         1,889,294  minor-faults              # 94.403 K/sec        (100%)
+                 6  major-faults              # 0.300 /sec          (100%)
+                 0  alignment-faults          # 0.000 /sec          (100%)
+                 0  emulation-faults          # 0.000 /sec          (100%)
+\end{verbatim}
+\fi
 

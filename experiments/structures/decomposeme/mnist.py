@@ -32,6 +32,17 @@ def conv2d_decomposing(input_layer, filter_size, in_channels, out_channels, inte
     first = tf.nn.relu(batch_normalization(tf.nn.conv2d(input_layer, W_1, strides, padding) + b_1))
     return tf.nn.relu(batch_normalization(tf.nn.conv2d(first, W_2, strides, padding) + b_2))
 
+def conv2d_separable(input_layer, filter_size, in_channels, out_channels, intermediate_channels, valid_padding=False):
+    padding = 'SAME' if not valid_padding else 'VALID'
+    depthwise_weights = weight_variable([filter_size, filter_size, in_channels, 1])
+    pointwise_weights = weight_variable([1, 1, in_channels, out_channels])
+    bias = bias_variable([out_channels])
+    return tf.nn.relu(batch_normalization(tf.nn.separable_conv2d(input_layer,
+                                                                 depthwise_filter=depthwise_weights,
+                                                                 pointwise_filter=pointwise_weights,
+                                                                 strides=[1, 1, 1, 1],
+                                                                 padding=padding) + bias))
+
 
 def conv2d(input_layer, filter_size, in_channels, out_channels, intermediate_channels, valid_padding=False):
     strides = [1, 1, 1, 1]
@@ -42,12 +53,7 @@ def conv2d(input_layer, filter_size, in_channels, out_channels, intermediate_cha
 
 
 def batch_normalization(input_layer):
-    return tf.nn.batch_normalization(input_layer,
-                                     mean=tf.Variable(0, dtype=tf.float32),
-                                     variance=tf.Variable(1, dtype=tf.float32),
-                                     offset=tf.Variable(0, dtype=tf.float32),
-                                     scale=tf.Variable(1, dtype=tf.float32),
-                                     variance_epsilon=tf.Variable(1e-8, dtype=tf.float32))
+    return tf.contrib.layers.batch_norm(input_layer, fused=True, scale=True, trainable=True)
 
 
 def max_pool_2x2(x):
@@ -64,7 +70,8 @@ h_conv2 = conv2d_decomposing(h_pool1, filter_size=5, in_channels=32, out_channel
 h_pool2 = max_pool_2x2(h_conv2)
 
 out_channels = 128
-h_fc1 = conv2d_decomposing(h_pool2, filter_size=7, in_channels=64, out_channels=out_channels, intermediate_channels=96, valid_padding=True)
+h_fc1 = conv2d_decomposing(h_pool2, filter_size=7, in_channels=64, out_channels=out_channels, intermediate_channels=96,
+                           valid_padding=True)
 h_fc1 = tf.reshape(h_fc1, [-1, out_channels])
 W_fc2 = weight_variable([out_channels, 10])
 b_fc2 = bias_variable([10])
@@ -73,8 +80,11 @@ y_conv = tf.matmul(h_fc1, W_fc2) + b_fc2
 
 cross_entropy = tf.reduce_mean(
     tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
-train_step = tf.train.RMSPropOptimizer(1e-4).minimize(cross_entropy)
+with tf.control_dependencies(update_ops):
+    train_step = tf.train.AdamOptimizer().minimize(cross_entropy)
+
 correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 

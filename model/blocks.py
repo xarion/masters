@@ -12,6 +12,7 @@ class Blocks:
     def __init__(self, graph_meta, training=True):
         self.graph_meta = graph_meta
         self.training = training
+        self.decayed_variables = []
 
     def get_variable_with_shape_by_graph_meta_getter(self, getter, name, shape, *args, **kwargs):
         if self.graph_meta is not None:
@@ -36,24 +37,46 @@ class Blocks:
 
     def conv2d(self, input_layer, filter_size, input_channels, output_channels, strides, pruner):
         weights = self.weight_variable("conv_weights", [filter_size, filter_size, input_channels, output_channels])
+        self.decayed_variables.append(weights)
         conv_pruner = Conv2D(weights)
         conv_pruner.set_previous_op(pruner)
         logits = tf.nn.conv2d(input_layer, weights, strides=[1, strides, strides, 1], padding="SAME")
         return logits, conv_pruner
 
+    def composed_conv2d(self, input_layer, filter_size, input_channels, output_channels, intermediate_channels,
+                        strides, pruner):
+        weights_1 = self.weight_variable("1d_weights_1", [1, filter_size, input_channels, intermediate_channels])
+        self.decayed_variables.append(weights_1)
+        conv_pruner = Conv2D(weights_1)
+        conv_pruner.set_previous_op(pruner)
+        logits = tf.nn.conv2d(input_layer, weights_1, strides=[1, 1, strides, 1], padding="SAME")
+        logits, pruner = self.batch_normalization(logits, pruner)
+        logits, pruner = self.relu(logits, pruner)
+        weights_2 = self.weight_variable("1d_weights_2", [filter_size, 1, intermediate_channels, output_channels])
+        self.decayed_variables.append(weights_2)
+        conv_pruner = Conv2D(weights_2)
+        conv_pruner.set_previous_op(pruner)
+        logits = tf.nn.conv2d(logits, weights_2, strides=[1, strides, 1, 1], padding="SAME")
+        return logits, conv_pruner
+
     def separable_conv2d(self, input_layer, filter_size, input_channels, depthwise_multiplier, output_channels,
-                         strides, pruner):
+                         strides, pruner, depthwise_relu_bn=False):
         intermediate_channels = input_channels * depthwise_multiplier
+
         depthwise_weights = self.weight_variable("depthwise_weights",
                                                  [filter_size, filter_size, input_channels, depthwise_multiplier])
 
         pointwise_weights = self.weight_variable("pointwise_weights", [1, 1, intermediate_channels, output_channels])
-
+        self.decayed_variables.append(pointwise_weights)
         depthwise_results = tf.nn.depthwise_conv2d_native(input=input_layer,
                                                           filter=depthwise_weights,
                                                           strides=[1, strides, strides, 1],
                                                           padding="SAME",
                                                           name="depthwise")
+        if depthwise_relu_bn:
+            depthwise_results, pruner = self.batch_normalization(depthwise_results, pruner)
+            depthwise_results, pruner = self.relu(depthwise_results, pruner)
+
         pointwise_results = tf.nn.conv2d(depthwise_results,
                                          pointwise_weights,
                                          [1, 1, 1, 1],
@@ -159,6 +182,7 @@ class Blocks:
 
     def fc(self, input_layer, input_channels, output_channels, pruner):
         weights = self.weight_variable("fc_weights", [input_channels, output_channels])
+        self.decayed_variables.append(weights)
         fc_pruner = Matmul(weights)
         fc_pruner.set_previous_op(pruner)
         return tf.matmul(input_layer, weights), fc_pruner
@@ -177,6 +201,7 @@ class Blocks:
     def deconvolution(self, input_layer, filter_size, input_channels, output_channels, output_dimensions, strides,
                       pruner):
         weights = self.weight_variable("deconv_weights", [filter_size, filter_size, output_channels, input_channels])
+        self.decayed_variables.append(weights)
         output_shape = [output_dimensions[0],
                         output_dimensions[1],
                         output_dimensions[2],
@@ -190,3 +215,30 @@ class Blocks:
         deconv_pruner.set_previous_op(pruner)
 
         return deconv, deconv_pruner
+
+    def separable_conv2d_with_max_pool(self, input_layer, filter_size, input_channels, depthwise_multiplier,
+                                       output_channels, strides, pruner):
+        intermediate_channels = input_channels * depthwise_multiplier
+
+        depthwise_weights = self.weight_variable("depthwise_weightz",
+                                                 [filter_size, filter_size, input_channels, depthwise_multiplier])
+
+        pointwise_weights = self.weight_variable("pointwise_weights", [1, 1, intermediate_channels, output_channels])
+        self.decayed_variables.append(pointwise_weights)
+        depthwise_results = tf.nn.depthwise_conv2d_native(input=input_layer,
+                                                          filter=depthwise_weights,
+                                                          strides=[1, strides, strides, 1],
+                                                          padding="SAME",
+                                                          name="depthwise")
+
+        depthwise_results = tf.nn.max_pool(depthwise_results, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+        pointwise_results = tf.nn.conv2d(depthwise_results,
+                                         pointwise_weights,
+                                         [1, 1, 1, 1],
+                                         padding="VALID")
+        separable_pruner = SeparableConv2D(depthwise_weights, pointwise_weights)
+        separable_pruner.set_previous_op(pruner)
+        return pointwise_results, separable_pruner
+
+    def get_decayed_variables(self):
+        return self.decayed_variables

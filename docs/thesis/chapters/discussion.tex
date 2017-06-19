@@ -19,12 +19,27 @@
 This section should be rich in references to similar work and background needed to interpret results. However, interpretation/discussion section(s) are often too long and verbose. Is there material that does not contribute to one of the elements listed above? If so, this may be material that you will want to consider deleting or moving. Break up the section into logical segments by using subheads. 
 \fi
 
+\section{Using Tensorflow}
+We have been using latest versions of Tensorflow. It comes with some advantages, such as:
+\begin{itemize}
+\item We don't worry about implementing lower level operations.
+\item Most of the operations are highly optimized form any platforms and devices. If we were to implement a model in C++, we'd have to implement it twice, one for training in GPU and another for running in the mobile device. 
+\item Tensorflow provides the necessary tools to deploy models on mobile devices.
+\end{itemize}
 
-\iffalse
+And it comes with some disadvantages, such as:
 
-what we couldn't do goes here
+\begin{itemize}
+\item When we started our work, tensorflow was in version 0.10. Now it is on 1.2. There have been 4 major releases that we had to modify our codebase for.
+\item Not all operations are properly implemented. For example, before version 1.2, Tensorflow implementation of separable convolutions were not very well optimized. They were as fast as convolution operations. Before that we could only hope that they would optimize their implementation.
+\item It is extremely difficult to implement operations (e.g. ef operator \cite{afrasiyabi2017energy}) or play around with existing ones because (as of Tensorflow 1.2) there exists no documentation describing C++ internals and build procedures. Since we chose not to go into i
+\item Tensorflow doesn't provide tools to implement low-bit variables (e.g. a 2-bit integer). So it is not possible to implement some methods that make use of variable width decimals. This limitation makes some methods impossible to use or useless. For example it is not possible to use methods that represent weights using variable width decimals. Also, storing low bit weight indices in combination with a small global weight array to reduce the model size is useless. Since we can't use low bit integers to represent these indices, our model size doesn't shrink at all.
+\end{itemize}
 
-Weight Sharing
-To be able to implement such a representation, we can use 2 potential functions of Tensorflow. One is \texttt{tf.gather} which selects the given indices from a given matrix. The other is \texttt{tf.embedding\_lookup} which works with a bucket of values and returns the given keys/indices from the given bucket. However, both methods accept the indices as a matrix of 32-bit or 64-bit integers. Therefore storing indices instead of weights would not yield with any improvements in the model size. Without an implementation of these methods using low-bit integers, it is not possible to exploit their usefulness.
+\section{Working with ImageNet}
+\cite{howard2017mobilenets} provides 
 
-\fi
+\section{Model Comparison}
+Comparing models that aim for mobile devices is hard. First, there are device/chip specific properties (i.e. l1-cache size and bandwidth speed) that in theory effect the speed of the model greatly. In theory, mobile device performance of a model depends on the amount of floating point multiplications and the model size. The amount of floating point multiplications would modify the model speed almost linearly. The model size is important, because in theory, it determines the amount of data transferred from memory to l1-cache (or SRAM). If our model and the required space to perform the operations in it are sufficiently small to fit in the l1-cache, it would speed up our model greatly by getting rid of all cache-misses. If these were bigger than the l1-cache, it would create a lack of storing and loading from memory, which would lead to waiting for data coming from memory (memory bandwidth bottleneck). So in theory, model size would effect the performance non-linearly. 
+
+But as we understood, Tensorflow implementation of running models is happening not on model level, but on layer level. We think that is the case because when we look at a sufficiently small model's benchmarking results, we saw that the amount of context switches were equal to the number of variable scopes times the number of inferences. That gave us an impression that tensorflow is loading the variable scopes 

@@ -27,8 +27,18 @@ class ActivationValueStats(OpStats):
     def get_dimensions_to_keep(self):
         with tf.variable_scope("stats"):
             stat_tensor = self.get_stat_tensor()
-            threshold = tf.reduce_mean(stat_tensor)
-            return tf.cast(tf.squeeze(tf.where(stat_tensor >= threshold)), dtype=tf.int32, name="dimensions_to_keep")
+            (count, sum, sum_sqr, shift) = tf.nn.sufficient_statistics(stat_tensor, axes=[0])
+            stdev = tf.sqrt((sum_sqr - (sum * sum) / count) / (count - 1))
+            mean = sum / count
+            higher_threshold = mean + stdev
+            higher_threshold = tf.cond(higher_threshold < 0,
+                                       lambda: tf.constant(0, dtype=tf.float32),
+                                       lambda: higher_threshold)
+            lower_threshold = mean - stdev
+            return tf.cast(tf.squeeze(tf.where(tf.logical_and(stat_tensor >= higher_threshold,
+                                                              stat_tensor <= lower_threshold))),
+                           dtype=tf.int32,
+                           name="dimensions_to_keep")
 
 
 class ActivationCountStats(OpStats):

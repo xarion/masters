@@ -61,8 +61,8 @@ public class Benchmark {
 
     String modelFileName = config.getModelFileName();
     this.modelName = config.getModelName();
-    this.inferenceInterface = new TensorFlowInferenceInterface();
-    return inferenceInterface.initializeTensorFlow(assetManager, modelFileName);
+    this.inferenceInterface = new TensorFlowInferenceInterface(assetManager, modelFileName);
+    return 1;
   }
 
   /**
@@ -80,18 +80,18 @@ public class Benchmark {
       // since we're not really interested in the result of inference,
       // we're feeding dummy data, all 0's
       Trace.beginSection("fillNodeFloat");
-      inferenceInterface.fillNodeFloat(
-          inputName, inputShape, floatValues);
+      inferenceInterface.feed(
+          inputName, floatValues, inputShape[0], inputShape[1], inputShape[2], inputShape[3]);
       Trace.endSection();
 
       // Run the inference call.
       Trace.beginSection("runInference");
-      inferenceInterface.runInference(outputNames);
+      inferenceInterface.run(outputNames);
       Trace.endSection();
 
       // Copy the output Tensor back into the output array.
       Trace.beginSection("readNodeFloat");
-      inferenceInterface.readNodeFloat(outputName, outputs);
+      inferenceInterface.fetch(outputName, outputs);
       Trace.endSection(); // readNodeFloat
       Trace.endSection(); // single_run
       benchmarkRecord.incrementNumberOfInferences();

@@ -15,8 +15,9 @@ flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
 
 # Preprocessing Flags (only affect training data, not validation data)
 CHECKPOINT_FOLDER = "checkpoints"
-CHECKPOINT_STEP = 20000
-CHECKPOINT_NAME = "SEP-RESNET-52"
+CHECKPOINT_STEP = 10000
+CHECKPOINT_NAME = "SEP-RESNET-34_ours"
+VALIDATION_STEP = 150
 
 DATA_DIR = "./data"
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
@@ -24,7 +25,7 @@ DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
 class Train:
     def __init__(self):
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
 
         self.graph = tf.Graph()
 
@@ -39,8 +40,8 @@ class Train:
         with self.graph.as_default():
             self.session.run(tf.variables_initializer(tf.local_variables()))
             merged = tf.summary.merge_all()
-            train_writer = tf.summary.FileWriter("summaries/train", self.graph)
-            test_writer = tf.summary.FileWriter("summaries/test", self.graph)
+            train_writer = tf.summary.FileWriter("summaries/train_ours", self.graph)
+            test_writer = tf.summary.FileWriter("summaries/test_ours", self.graph)
             saver = tf.train.Saver(max_to_keep=10)
 
             latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
@@ -64,15 +65,18 @@ class Train:
                                                          feed_dict={self.model.do_validate: False})
 
                     train_writer.add_summary(m, step)
-                    m, top1, = self.session.run([merged, self.model.top_1_accuracy],
-                                                feed_dict={self.model.do_validate: True})
-                    test_writer.add_summary(m, step)
+                    if step % VALIDATION_STEP == 0:
+                        m, top1, = self.session.run([merged, self.model.top_1_accuracy],
+                                                    feed_dict={self.model.do_validate: True})
+                        test_writer.add_summary(m, step)
 
                     if step % CHECKPOINT_STEP == 0:
                         saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
             except tf.errors.OutOfRangeError:
                 self.log('Done training -- epoch limit reached')
             finally:
+                self.log('Saving a one last checkpoint before dying.')
+                saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
                 coord.request_stop()
 
             coord.join(threads)

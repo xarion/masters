@@ -15,6 +15,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
+
 # set the seed to get stable results!
 FLAGS = tf.app.flags.FLAGS
 
@@ -49,7 +50,7 @@ tf.app.flags.DEFINE_boolean('plot_figures', True,
 tf.app.flags.DEFINE_integer('activation_threshold', 0,
                             """Threshold to be used while determining irrelevant hidden neurons.""")
 
-tf.app.flags.DEFINE_integer('std_multiplier', 4,
+tf.app.flags.DEFINE_integer('std_multiplier', 2,
                             """Multiplier of standard deviation while determining the outliers.""")
 
 tf.app.flags.DEFINE_integer('initial_epochs', 1,
@@ -102,12 +103,7 @@ def main(FLAGS):
     step_durations = []
 
     def batch_normalization(input_layer, parameters):
-        return tf.nn.batch_normalization(input_layer,
-                                         mean=parameters[0],
-                                         variance=parameters[1],
-                                         offset=parameters[2],
-                                         scale=parameters[3],
-                                         variance_epsilon=parameters[4])
+        return input_layer
 
     def distort(values):
         if FLAGS.distort_weights:
@@ -248,8 +244,14 @@ def main(FLAGS):
             regularized_cost = cost + cost_regularizers
 
         with tf.name_scope("optimizer"):
-            # optimizer = tf.train.RMSPropOptimizer(learning_rate=LEARNING_RATE, momentum=0.9).minimize(regularized_cost)
-            optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(regularized_cost)
+            step = tf.Variable(0)
+            boundaries = [600, 1100, 1400]
+            values = [0.001, 0.0001, 0.00001, 0.000001]
+            learning_rate = tf.train.piecewise_constant(step, boundaries, values)
+
+            optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, momentum=0.9).minimize(regularized_cost,
+                                                                                                      global_step=step)
+            # optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(regularized_cost)
 
         init = tf.global_variables_initializer()
 
@@ -389,6 +391,7 @@ def main(FLAGS):
     print("Step Durations:  %s" % str(step_durations))
     print("Total Training Cycles: %d" % training_cycles)
     if FLAGS.plot_figures:
+        import matplotlib.pyplot as plt
         plt.figure()
         num_cycles = len(node_count_histories[0])
         layer_1, = plt.plot(range(0, num_cycles), node_count_histories[0], label='Layer 1')

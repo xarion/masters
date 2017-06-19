@@ -26,7 +26,7 @@ def prune(values):
     return values
 
 
-graph = read_graph("models/pruned_output.pb")
+graph = read_graph("../../../benchmark/models/separable_resnet.pb")
 with tf.Session() as sess:
     pruned_graph = visit_nodes(graph)
     write_graph(pruned_graph, ["pred"], sess, "models/pruned_output.pb")

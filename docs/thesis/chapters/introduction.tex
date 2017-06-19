@@ -45,7 +45,7 @@ ILSVRC is one of the most famous competitions in Image Processing. Every year, t
 How can we reduce the inference complexity of Neural Networks?
 How do these modifications effect accuracy?
 \end{quote}
-First, we will briefly describe neural networks and some underlying concepts. We will mention the complexities of necessary operations. Then, we will provide known solutions to reduce these complexities.
+First, we will briefly describe neural networks and some underlying concepts. We will mention the complexities of necessary operations. Then, we will provide known solutions to reduce these complexities. In chapter two we will explain the experiments we ran and present our solution. In chapter three, we will present our results. 
 
 \section{Neural Networks}
 In this chapter, we will try to describe neural networks briefly. We will provide some terminology and give some examples. 
@@ -184,10 +184,11 @@ Average pooling averages the values within the patch per channel.
 $$ M^{(avg)}(p) = \{\sum_{i=1}^{K}\sum_{j=1}^{K}\frac{p_{i,j,m}}{K^2} \ | \  l \in [1, \ldots, m] \} $$
 
 \subsection{Deconvolution}
-
+\todoin{Explain deconv}
 
 \section{Efficient Operations}
 In this section we are going to look at some ways to reduce the computational complexities of fully connected layers and convolutional layers. 
+\todoin{talk about number of parameters per layer for every operation}
 
 \section{Factorization}
 Factorization is approximating a weight matrix using smaller matrices. This has interesting uses with Neural Networks. Assume that we have a fully connected layer $k$. Using factorization, we can approximate $\mathbf{w}^{(k)} \in \mathbb{R}^{m_{k-1} \times m_k}$ using two smaller matrices, $U_{\mathbf{w}^{(k)}} \in \mathbb{R}^{m_{k-1} \times n}$ and $V_{\mathbf{w}^{(k)}} \in \mathbb{R}^{n \times m_{k}}$. If we can find matrices such that $U_{\mathbf{w}^{(k)}}V_{\mathbf{w}^{(k)}} \approx \mathbf{w}^{(k)}$, we can rewrite, 
@@ -221,7 +222,7 @@ $$ \frac{Km_{k-1}m_k}{m_{k-1} + m_k} > n$$
 
 
 \subsection{Separable Convolutions}
-Separable convolutions separate the standard convolution operation into two parts. These parts are called depthwise convolutions and pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. 
+Suggested by \cite{sifre2014rigid}, separable convolutions separate the standard convolution operation into two parts. These parts are called depthwise convolutions and pointwise convolutions. Depthwise convolution applies a given number of filters on every input channel, one by one therefore results with output channels equal to input channel times number of filters. Separable convolutions are used by \cite{chollet2016xception} and \cite{howard2017mobilenets} to reduce complexity of neural networks.
 \subsubsection{Depthwise Convolution}
 Given a patch $p \in \mathbb{R}^{K \times K \times m}$, depthwise convolution has a weight matrix $\mathbf{w}^{(k, Depthwise)} \in \mathbb{R}^{K \times K \times m}$. For easiness, let's assume variants of $p$ and $\mathbf{w}^{(k, Depthwise)}$, described as $p' \in \mathbb{R}^{K \times K}$ and $\mathbf{w}'^{(k, Depthwise)}  \in \mathbb{R}^{K \times K}$,
 $$\mathbf{w}'^{(k, Depthwise)}_m = \{ \mathbf{w}^{(k, Depthwise)}_{i,j,m} \ | \ i \in [1, \ldots, K], j \in [1, \ldots, K] \}$$
@@ -290,6 +291,10 @@ Assume the layer k with $o_k \in \mathbb{R}^{m_k}$ where $m_k$ is the number of 
 Since we are interested in normalizing the nodes, even if $k$ was a convolutional layer, the shape of these parameters would not change.
 $$ BN(o_k) = \frac{\gamma_k(o_k-\mu_k)}{\sigma_k}+\beta_k $$
 
+\subsubsection{Fused Batchnorm}
+Instead of directly implementing the formula, they implement a more efficient version of it in Fused Batch normalization.
+\todoin{more details and better description here.}
+
 \subsection{Regularization}
 Regularization methods aim to prevent overfitting in neural networks. Overfitting is the case where the weights of a a neural network converge for the training dataset. Meaning that the network performs very very good for the training dataset, while it is not generalized to work with any other data. Regularization methods try to prevent this.
 
@@ -311,7 +316,7 @@ An inception block (\cite{Szegedy:2014aa}, \cite{Szegedy_2016_CVPR}, \cite{DBLP:
 \fi
 
 \subsection{Residual Blocks}
-\cite{He:2015aa} introduced two types of residually connected blocks. First is called a residual block, consisting of two convolution operations and a residual connection between the input and the output of the block. They have trained networks with and without residual connections on ImageNet dataset. Their results show that introduction of the residual connections reduce the top-1 error rate of the 34 layer network from $\%28.54$ to $\%25.3$.
+\cite{He:2015aa} introduced two types of residually connected blocks. First is called a residual block, consisting of two convolution operations and a residual connection between the input and the output of the block. They have trained networks with and without residual connections on ImageNet dataset. Their results show that introduction of the residual connections reduce the top-1 error rate of the 34 layer network from $28.54\%$ to $25.3\%$.
 \todoin{explain this as you explained residual bottleneck blocks.}
 
 \subsection{Residual Bottleneck Blocks}
@@ -323,7 +328,6 @@ $$ \psi_b^{(ResidualBottleneck)}: \mathbb{R}^{H_{b-1} \times W_{b-1} \times m_{b
 with the helper function $S$
 $$ \psi_b^{(ResidualBottleneck)}(o) =  S(o) + \psi_{(b, 3)}^{(Conv)}(\psi_{(b, 2)}^{(Conv)}(\psi_{(b, 1)}^{(Conv)}(o))) $$
 \begin{equation*}
-\label{eq:output_of_layers}
     S_b(o) = 
 \begin{cases}
     o, &\text{if } (W_b, H_b, m_b) = (W_{b-1}, H_{b-1}, m_{b-1})\\
@@ -333,7 +337,7 @@ $$ \psi_b^{(ResidualBottleneck)}(o) =  S(o) + \psi_{(b, 3)}^{(Conv)}(\psi_{(b, 2
 where $P$ is a padding function that equalizes the number of nodes in the outputs and $M_b^{(avg)}$ is the average pooling function that equalizes the width and height dimensions of the input and output of the block.
 To their definition the first convolution operation in the block reduces the number of nodes with kernel size $K_{(b,1)}=1$. The number of nodes is defined with a dependency to the stride of block ($s_b \in \{1,2\})$ as $m_{(b,1)} = m_{b}/(4/s_b)$. By that logic, if a residual block is reducing the width and height by half, it is doubling the number of nodes to represent more information. Second convolution operation kernel size $K_{(b,2)}=3$ and has the same number of nodes as the previous layer $m_{(b,2)} = m_{(b,1)}$. The third convolutional layer quadruples the number of nodes ($m_{(b,3)} = 4m_{(b,1)}$) with kernel size $K_{(b,3)} = 1$.
 
-Their 50-layer network using residual bottleneck blocks achieves $\%22.85$ top-1 error rate on ImageNet dataset.
+Their 50-layer network using residual bottleneck blocks achieves $22.85\%$ top-1 error rate on ImageNet dataset.
 
 
 \iffalse
@@ -362,10 +366,15 @@ conv5\_x				& $  7 \times   7$				& $\begin{bmatrix} 3 \times 3, & 512 \\ 3 \tim
 \fi
 
 \section{Datasets}
+
 \subsection{MNIST}
-MNIST dataset \cite{lecun1998mnist} consists of 60.000 training and 10.000 test samples. Each sample is a $28 \times 28$ black and white image of a handwritten digit ($0$ to $9$). To our knowledge, best model trained on MNIST achieve almost zero ($\%0.23$, \cite{DBLP:journals/corr/abs-1202-2745}) error rate. 
+MNIST dataset \cite{lecun1998mnist} consists of 60.000 training and 10.000 test samples. Each sample is a $28 \times 28$ black and white image of a handwritten digit ($0$ to $9$). To our knowledge, best model trained on MNIST achieve almost zero ($0.23\%$, \cite{DBLP:journals/corr/abs-1202-2745}) error rate. 
+
 \subsection{CIFAR10}
-CIFAR10 dataset \cite{krizhevsky2009learning} consists of 50.000 training and 10.000 test samples. Each sample is a $32 \times 32$ colored image belonging to one of 10 classes. The classes are airplane, automobile, bird, cat, deer, dog, frog, horse, ship and truck. To our knowledge, best models trained on CIFAR10 achieve $\%3.47$ (\cite{DBLP:journals/corr/Graham14a}) error rate.
+CIFAR10 dataset \cite{krizhevsky2009learning} consists of 50.000 training and 10.000 test samples. Each sample is a $32 \times 32$ colored image belonging to one of 10 classes. The classes are airplane, automobile, bird, cat, deer, dog, frog, horse, ship and truck. To our knowledge, best models trained on CIFAR10 achieve $3.47\%$ (\cite{DBLP:journals/corr/Graham14a}) error rate.
+
+\subsection{ImageNet}
+The dataset used in ILSVRC is called ImageNet. ImageNet \cite{deng2012image} comes with $1.281.167$ training images and $50.000$ validation images consisting of $1000$ classes containing multiple dog species and daily objects. ImageNet comes with bounding boxes showing where the object is in the image. We are interested in the object detection task. So we crop these bounding boxes and feed them to our neural network for training. Best submission from 2016 challenge has achieved $0.02991$ error rate. Which is equal to $97.009\%$ top-1 accuracy. 
 
 \section{Tools}
 \subsection{Tensorflow}
