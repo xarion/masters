@@ -11,43 +11,76 @@
 import numpy as np
 import tensorflow as tf
 
+
 from graph_helper import copy_operation_to_graph, read_graph, write_graph
 
+ERROR_THRESHOLD = 0.001
+
+FORCED_DTYPE=tf.half
 
 #  to reduce the number of parameters, this eq should hold true
 #  r < (m * n / (m + n))
 #  So here we choose r as (m * n / (m + n)) / K
 def choose_rank(weights):
-    m, n = weights.shape
-    new_rank = int((m * n / (m + n)) / 2)
-    return new_rank
+    original_weights = weights
+    if len(weights.shape) > 2:
+        shape = (np.prod(weights.shape[0:-1]), weights.shape[-1])
+    elif len(weights.shape) == 2:
+        shape = weights.shape
+    else:
+        raise Exception("kernel size unsupported")
+    m, n = shape
+    weights = np.reshape(weights, shape)
+    rounded_weights = np.around(weights, decimals=2)
+    U, s, V = np.linalg.svd(rounded_weights, full_matrices=False)
+    error = 0
+    r = s.shape[0]
+    while (error < ERROR_THRESHOLD) and r > 1:
+        s = s[0:-1]
+        U = U[:, 0:-1]
+        V = V[0:-1, :]
+        S = np.diag(s)
+        new_weights = np.dot(U, np.dot(S, V))
+        error = np.mean(np.square(weights - new_weights))
+        r -= 1
+
+    if r < ((m * n) / (m + n)):
+        return U, s, V
+    else:
+        return original_weights
 
 
-#  Given a set of weights, calculates the SVD(s, u, v)
-#  Uses choose_rank to calculate a lower rank
-#  returns low rank s, u, v
-def decompose_low_rank(weights):
-    u, s, v = np.linalg.svd(weights, compute_uv=True, full_matrices=True)
-    new_rank = choose_rank(weights)
-    low_rank_u = u[:, :new_rank]
-    low_rank_s = s[:new_rank]
-    low_rank_v = v[:new_rank, :]
-    return low_rank_u, low_rank_s, low_rank_v
-
-
-#  there could be other compositions such as w1 = s dot sqrt(s) and w2 = sqrt(s) dot v.
+# there could be other compositions such as w1 = s dot sqrt(s) and w2 = sqrt(s) dot v.
 #  output is always composed weights for the decomposition, to be multiplied with MatMul.
 def create_svd_composition_constants(svd, op_name):
     u, s, v = svd
-    us = tf.constant(np.dot(u, np.diag(s)), name=op_name + "/svd/u_dot_s")
-    v = tf.constant(v, name=op_name + "/svd/v")
+    us = np.dot(u, np.diag(s))
     return us, v
 
 
-def create_low_rank_composition_layer(input_tensor, w1, w2, op_name):
+def create_matmul_low_rank_composition_layer(input_tensor, w1, w2, op_name):
+    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s", dtype=FORCED_DTYPE)
+    w2 = tf.constant(w2, name=op_name + "/svd/v", dtype=FORCED_DTYPE)
     intermediate_tensor = tf.matmul(input_tensor, w1, name=op_name + "/svd/intermediate")
     output_tensor = tf.matmul(intermediate_tensor, w2, name=op_name + "/svd/output")
-    return intermediate_tensor, output_tensor
+    return w1, w2, intermediate_tensor, output_tensor
+
+
+def create_conv2d_low_rank_composition_layer(input_tensor, w1, w2, previous_weight_shape, strides, padding, op_name):
+    first_shape = list(previous_weight_shape[0:-1])
+    first_shape.append(-1)
+    w1 = np.reshape(w1, first_shape)
+
+    second_shape = [1, 1, -1, previous_weight_shape[-1]]
+    w2 = np.reshape(w2, second_shape)
+
+    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s", dtype=FORCED_DTYPE)
+    w2 = tf.constant(w2, name=op_name + "/svd/v", dtype=FORCED_DTYPE)
+    intermediate_tensor = tf.nn.conv2d(input_tensor, filter=w1, strides=strides, padding=padding,
+                                       name=op_name + "/svd/intermediate")
+    output_tensor = tf.nn.conv2d(intermediate_tensor, filter=w2, strides=[1, 1, 1, 1], padding="SAME",
+                                 name=op_name + "/svd/approximation")
+    return w1, w2, intermediate_tensor, output_tensor
 
 
 def low_rank_graph_approximation(graph, session):
@@ -61,33 +94,74 @@ def low_rank_graph_approximation(graph, session):
     #  which rewrites the whole graph by ignoring the unused variables/constants
     for operation in graph.get_operations():
         new_operations = []
-        if operation.type == "MatMul":
+        if is_decomposable(operation.type):
             weight_tensor = None
             input_tensor = None
             for operation_input in operation.inputs:
-                if operation_input.op.type == "Identity" or operation_input.op.type == "Const":
+                if is_weight_type(operation_input.op.type):
                     weight_tensor = operation_input.eval(session=session)
                 else:
                     input_tensor = operation_input
-            if any(filter(lambda s: s < 2, weight_tensor.shape)):
-                new_operations.append(operation)
-            else:
-                svd = decompose_low_rank(weight_tensor)
-                us, v = create_svd_composition_constants(svd, operation.name)
-                intermediate_tensor, output_tensor = create_low_rank_composition_layer(input_tensor, us, v, operation.name)
+            new_weights = choose_rank(weight_tensor)
+            if type(new_weights) == tuple:
+                us, v = create_svd_composition_constants(new_weights, operation.name)
+                if is_matmul(operation.type):
+                    us, v, intermediate_tensor, output_tensor = create_matmul_low_rank_composition_layer(input_tensor,
+                                                                                                         us, v,
+                                                                                                         operation.name)
+                elif is_conv2d(operation.type):
+                    padding = operation.node_def.attr['padding'].s
+                    strides = list(operation.node_def.attr['strides'].list.i)
+
+                    us, v, intermediate_tensor, output_tensor = create_conv2d_low_rank_composition_layer(input_tensor,
+                                                                                                         us, v,
+                                                                                                         weight_tensor.shape,
+                                                                                                         strides,
+                                                                                                         padding,
+                                                                                                         operation.name)
+                else:
+                    raise Exception("How did i get here?")
+
                 new_operations.append(us.op)
                 new_operations.append(v.op)
                 new_operations.append(intermediate_tensor.op)
                 new_operations.append(output_tensor.op)
                 replacements[operation.name] = output_tensor.op.name
+            else:
+                new_operations.append(operation)
+        elif is_weight_type(operation.type):
+            value = operation.outputs[0].eval()
+            value = value.astype(np.float16)
+            with new_graph.as_default():
+                new_op = tf.constant(value, dtype=tf.half, name=operation.name).op
+                new_operations.append()
+                replacements[operation.name] =
         else:
             new_operations.append(operation)
+
         for op in new_operations:
             copy_operation_to_graph(new_graph, op, replacements)
     return new_graph
 
 
-graph = read_graph("models/output.pb")
+def is_matmul(operation_type):
+    return operation_type == "MatMul"
+
+
+def is_conv2d(operation_type):
+    return operation_type == "Conv2D"
+
+
+def is_decomposable(operation_type):
+    return is_matmul(operation_type) or is_conv2d(operation_type)
+
+
+def is_weight_type(operation_type):
+    return operation_type == "Identity" or operation_type == "Const"
+
+
+graph = read_graph("separable_resnet-cifar-10.pb")
 with tf.Session(graph=graph) as sess:
     pruned_graph = low_rank_graph_approximation(graph, sess)
-    write_graph(pruned_graph, ["pred"], sess, "models/svd_output.pb")
+    write_graph(pruned_graph, ["output/BiasAdd"], sess,
+                "separable_resnet-cifar-10-new-threshold-" + str(ERROR_THRESHOLD) + ".pb")
