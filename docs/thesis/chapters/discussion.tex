@@ -19,6 +19,11 @@
 This section should be rich in references to similar work and background needed to interpret results. However, interpretation/discussion section(s) are often too long and verbose. Is there material that does not contribute to one of the elements listed above? If so, this may be material that you will want to consider deleting or moving. Break up the section into logical segments by using subheads. 
 \fi
 
+\section{Pruning and Factorization}
+In our experiments with pruning, we started with very large models for the given problem. We believe that this might have left a false impression. As it did in our experiments, pruning a model would not reduce the model complexity by 1000 times for every model. Depending on the model size and the problem definition, pruning will help us reduce the model complexity, but if our model is sufficiently small for the problem definition, it may not help us at all. In our experiments we have seen that pruning separable resnet did not reduce the model complexity significantly. 
+
+Similarly, if we apply factorization on a very large model, we gain huge speed ups with minor effort. But if our model is compact enough, the complexity gains from these models reduce significantly.
+
 \section{Using Tensorflow}
 We have been using latest versions of Tensorflow. It comes with some advantages, such as:
 \begin{itemize}
@@ -36,10 +41,15 @@ And it comes with some disadvantages, such as:
 \item Tensorflow doesn't provide tools to implement low-bit variables (e.g. a 2-bit integer). So it is not possible to implement some methods that make use of variable width decimals. This limitation makes some methods impossible to use or useless. For example it is not possible to use methods that represent weights using variable width decimals. Also, storing low bit weight indices in combination with a small global weight array to reduce the model size is useless. Since we can't use low bit integers to represent these indices, our model size doesn't shrink at all.
 \end{itemize}
 
+\iffalse
 \section{Working with ImageNet}
-\cite{howard2017mobilenets} provides 
-
+Most of the research compares models based on ImageNet\cite{howard2017mobilenets} 
+\fi
 \section{Model Comparison}
-Comparing models that aim for mobile devices is hard. First, there are device/chip specific properties (i.e. l1-cache size and bandwidth speed) that in theory effect the speed of the model greatly. In theory, mobile device performance of a model depends on the amount of floating point multiplications and the model size. The amount of floating point multiplications would modify the model speed almost linearly. The model size is important, because in theory, it determines the amount of data transferred from memory to l1-cache (or SRAM). If our model and the required space to perform the operations in it are sufficiently small to fit in the l1-cache, it would speed up our model greatly by getting rid of all cache-misses. If these were bigger than the l1-cache, it would create a lack of storing and loading from memory, which would lead to waiting for data coming from memory (memory bandwidth bottleneck). So in theory, model size would effect the performance non-linearly. 
+Comparing models that aim for mobile devices is hard. First, there are device/chip specific properties (i.e. l1-cache size and bandwidth speed) that in theory effect the speed of the model greatly. In theory, mobile device performance of a model depends on the amount of floating point multiplications and the model size. The amount of floating point multiplications would modify the model speed almost linearly. The model size is important, because in theory, it determines the amount of data transferred from memory to l1-cache. If our model and the required space to perform the operations in it are sufficiently small to fit in the l1-cache, it would speed up our model greatly by getting rid of all cache-misses. If these were bigger than the l1-cache, it would create a lack of storing and loading from memory, which would lead to waiting for data coming from memory (memory bandwidth bottleneck). So in theory, model size would effect the performance non-linearly. In practice, we couldn't find a good way of predicting the number of inferences based on number of floating point operations and model size. 
 
-But as we understood, Tensorflow implementation of running models is happening not on model level, but on layer level. We think that is the case because when we look at a sufficiently small model's benchmarking results, we saw that the amount of context switches were equal to the number of variable scopes times the number of inferences. That gave us an impression that tensorflow is loading the variable scopes 
+One thing that greatly affects this process is the implementation of the model executor. We think that the tensorflow implementation of the model executor is not meant to load the whole model on the cpu. 
+
+\iffalse
+But as we understood, Tensorflow implementation is not executing models on model level, but on layer level (based on variable scopes). We think that is the case because when we look at a sufficiently small model's benchmarking results, we saw that the amount of context switches were equal to the number of variable scopes times the number of inferences.
+\fi

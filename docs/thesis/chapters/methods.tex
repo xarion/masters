@@ -1,51 +1,47 @@
 % !TEX root = ../thesis.tex
-So far we have explained some neural network building blocks and some techniques for reduced complexity. We have run some experiments to better understand some of these techniques. In this chapter, we are going to talk about these experiments and tools we had to built to run these experiments. First we identified some methods and to understand them better, we ran experiments on them. Then we have combined these methods to come up with a model. 
+So far we have explained some neural network building blocks and some techniques for reduced complexity. We have run some experiments to better understand some of these techniques. In this chapter, we are going to talk about these experiments and tools we had to built to run these experiments. First we identified some methods and to understand them better, we ran experiments on them. Then we have tried to combine these methods to come up with a model. 
 
 \section{Pruning}
-Since pruning individual weights do not effect complexity directly, we are going to focus on pruning nodes from layers. To do that, as \cite{Hu:2016aa} explained, we are going to use \textit{training cycles}. First, we will define a neural network and some data. Then we will train this network using the training dataset. After the training is done, we will run inference for the training dataset and collect ReLU output statistics. Using these statistics, we will try to understand which nodes have minimal effect on accuracy. We will prune these nodes by removing the relevant dimensions from weight matrices. Then we will go back to the training step. We will keep iterating over this list until there are no nodes to be pruned.
+Since pruning individual weights do not effect complexity directly, we are going to focus on pruning nodes. To do that, as \cite{Hu:2016aa} explained, we are going to use \textit{training cycles}. First, we will define a neural network and a problem. Then we will train this network using the training dataset. After the training is done, we will run inference on the training dataset and collect ReLU output statistics. Using these statistics, we will try to understand which nodes have minimal effect on the outcome. We will prune these nodes by removing the relevant dimensions from the weight matrices. Then we will go back to the training step. We will keep iterating over these steps until we can't find any nodes to be pruned.
 
 \subsection{Fully Connected Summation}
-For the sake of simplicity, we started with a very easy problem. We have implemented a neural network consisting of 2 input dimensions ($x_n \in \mathbb{R}^{2}$), one fully connected layer with 1000 nodes and a one fully connected output with a single node ($y_n \in \mathbb{R}$). We have defined the output as the summation of two inputs, ($y_n = x_{n,1} + x_{n,2}$). So that we precisely know the optimum neural network structure that would be able to perform this calculation. Which is a neural network with one fully connected layer with one node and an output layer fully connected to that. All weights equal to $1$ and all biases equal to $0$.
+To increase our understanding on this method, we started with a very easy problem. We have implemented a neural network consisting of 2 input dimensions ($\xn{n} \inreal{2}$), one fully connected layer with 1000 nodes and a one fully connected output with a single node ($\yn{n} \in \realR$). We have defined the expected output as the summation of two inputs, ($\yn = \xn{n,1} + \xn{n,2}$). So that we precisely know the optimum neural network structure that would be able to perform this calculation. Which is a neural network with one fully connected layer with one node and an output layer with one node fully connected to that. All weights equal to $1$ and all biases equal to $0$.
 
 We have calculated the loss using mean squared error, and used Momentum Optimizer (learning rate $0.01$ and momentum $0.9$) to learn the weights. We have generated $1.000.000$ samples, we trained the network with batch size $1000$.
 
 \subsection{MNIST Autoencoder}
 To expand our pruning experiments to convolutional neural networks, we have implemented an autoencoder for MNIST Dataset. An autoencoder consists of two parts. First is the encoder, which aims to reduce the dimensionality of input. The other is decoder, which aims to convert the encoded data back to it's original form. Therefore an autoencoder reduces the dimensions of an input data and then tries to recreate that data from those reduced dimensions.
 
-We have defined the auto encoder with two encoder layers followed by two decoder layers. Each encoding layer running a convolution with kernel size $3$ and stride of $2$. Following each of these, we are applying batch normalization and ReLU activation. Each decoding layer is running deconvolutions with kernel size $3$ and stride of $2$. Followed by adding bias, batch normalization and ReLU activations.   
-\todoin{confirm the configuration above}
+We have defined the auto encoder with two encoder layers followed by two decoder layers. Each encoding layer running a convolution with kernel size $3$ and stride of $2$. Following each of these, we are applying batch normalization and ReLU activation. Each decoding layer is running deconvolutions with kernel size $3$ and stride of $2$. Followed by adding bias, batch normalization and ReLU activations. We defined the loss as the root mean square of the input and the output of the network. 
 
-The information contained in one input image $x_n \in \mathbb{R}^{28 \times 28 \times 1}$ is represented with $784$ floating points. Therefore, a good auto-encoder should be reducing this number with each encoding layer. Similarly, converting encoded image back to it's original form with minimal loss while decoding. 
+The information contained in one input image $\xn{n} \inreal{28 \times 28 \times 1}$ is represented with $784$ floating points. Therefore, a good auto-encoder should be reducing this number with each encoding layer. While doing so, it should be able to convert the encoded image back to it's original form with minimal loss while decoding. 
 
 Since we will try to find and prune unused nodes, we will start with a configuration that is larger than necessary. 
 \begin{equation*}
 \begin{split}
-x_n &\in \mathbb{R}^{28 \times 28 \times 1}\\
-\psi_1^{(Conv)}:& \mathbb{R}^{28 \times 28 \times 1} \rightarrow \mathbb{R}^{14 \times 14 \times 32} \\
-\psi_2^{(Conv)}:& \mathbb{R}^{14 \times 14 \times 32} \rightarrow \mathbb{R}^{7 \times 7 \times 64} \\
-\psi_3^{(Deconv)}:& \mathbb{R}^{7 \times 7 \times 64} \rightarrow \mathbb{R}^{14 \times 14 \times 32} \\
-\psi_4^{(Deconv)}:& \mathbb{R}^{14 \times 14 \times 32} \rightarrow \mathbb{R}^{28 \times 28 \times 1} \\
-L =& RMSE(x_n, \hat y_n)
+\xn{n} &\inreal{28 \times 28 \times 1}\\
+\convk{1}:& \real{28 \times 28 \times 1} \rightarrow \real{14 \times 14 \times 32} \\
+\convk{2}:& \real{14 \times 14 \times 32} \rightarrow \real{7 \times 7 \times 64} \\
+\lftk{Deconv}{3}:& \real{7 \times 7 \times 64} \rightarrow \real{14 \times 14 \times 32} \\
+\lftk{Deconv}{4}:& \real{14 \times 14 \times 32} \rightarrow \real{28 \times 28 \times 1} \\
+\loss =& RMSE(\xn{n}, \yhn{n})
 \end{split}
 \end{equation*}
 
 \subsection{Regularization}
-In both experiments, we test no regularization, L1 regularization and L2 regularization to see if they effect the activation statistics and pruning.
+In both experiments, we test no regularization, L1 regularization and L2 regularization to see how they effect the activation statistics and pruning.
 
 \subsection{Distortion}
-In case of two nodes in one layer, if the weights connecting to them are proportional, it may not be possible to prune one of them. To prevent that, we introduce a little bit distortion, forcing the differentiation of features represented by nodes. 
+In case of two nodes in one layer, if the weights connecting to them are proportional, it may not be possible to prune one of them. To prevent that, we introduce a little bit distortion to weights, forcing nodes representing similar features to have a difference. 
 
 \subsection{Activations}
-We test 2 pruning configurations for activation counts, activation values 
-\todoin{we need proper mathematical notations to be able to describe these properly. We need to be able to define all training samples as a set and as individuals.}
+We test 2 pruning configurations for activation counts, activation values. There are many alternatives on choosing the neurons or weighs to prune. But we stick to the two simplest methods.
 
 \subsubsection{Activation Counts}
-We count the ReLU activations per node. Using this information we determine which nodes are not used. We set a range using the mean and variance of activation counts. We prune the nodes outside this range.
+We count the activations per node, regardless the activation value. Using this information we determine which nodes are not used. We set a range using the mean and variance of activation counts. We prune the nodes outside this range.
 
 \subsubsection{Activation Values}
-We collect statistics about activation values per node. Using this information we determine which nodes are more important for the results by calculating the variance per node and removing the low variance ones regardless of the mean value.
-
-\todoin{find the reference papers for previous two methids}
+We collect statistics about output values per node. Using this information we determine which nodes are more important for the results by calculating the variance per node and removing the low variance ones regardless of the mean value.
 
 \iffalse
 \subsubsection{Activation Correlation}
@@ -54,23 +50,26 @@ We also collect statistics about activation correlations to see which nodes are 
 \fi
 
 \section{Convolution Operation Alternatives}
-In general, convolution operations are expensive. In this section, we experiment with \textit{kernel composition} and \textit{separable convolutions} to see which one is the better alternative to regular convolutions. To see the differences between both operations, we ran two experiments for each. One classifying MNIST dataset, the other classifying CIFAR10 dataset.
+In general, convolution operations are expensive. In this section, we experiment with \textit{kernel composition} and \textit{separable convolutions} to see which one is the better alternative to regular convolutions. To see the differences between both operations, we ran two experiments for each. One classifying MNIST dataset, the other classifying CIFAR-10 dataset.
 
 We have defined a network with three convolutional layers followed by one fully connected layer. Each convolutional layer has kernel size 5. Convolutional layers are followed by batch normalization, then ReLU activations. First two convolution layers are followed by an average pooling layer with kernel size $2$ and strides of $2$. The third convolutional layer is followed by a global average pooling layer, where we reduce the width and height dimensions to the average of all values in those dimensions. We using SCE loss and momentum optimizer (learning rate $10^{-4}$, and momentum $0.9$), we train this network for $20000$ steps with batch size $32$. 
 
 \begin{equation*}
 \begin{split}
-x_n &\in \mathbb{R}^{32 \times 32 \times 1}\\
-\psi_1^{(Conv)}:& \mathbb{R}^{32 \times 32 \times 3} \rightarrow \mathbb{R}^{32 \times 32 \times 32} \\
-\psi_2^{(Conv)}:& \mathbb{R}^{16 \times 16 \times 32} \rightarrow \mathbb{R}^{16 \times 16 \times 64} \\
-\psi_3^{(Conv)}:& \mathbb{R}^{8 \times 8 \times 64} \rightarrow \mathbb{R}^{8 \times 8 \times 128} \\
-\psi_4^{(FC)}:& \mathbb{R}^{1 \times 1 \times 128} \rightarrow \mathbb{R}^{10} \\
-L =& SCE(x_n, \hat y_n)
+\xn{n} &\inreal{32 \times 32 \times 1}\\
+\convk{1}:& \real{32 \times 32 \times 3} \rightarrow \real{32 \times 32 \times 32} \\
+\avgpoolk{2}:& \real{32 \times 32 \times 32} \rightarrow \real{16 \times 16 \times 32} \\
+\convk{3}:& \real{16 \times 16 \times 32} \rightarrow \real{16 \times 16 \times 64} \\
+\avgpoolk{4}:& \real{16 \times 16 \times 64} \rightarrow \real{8 \times 8 \times 64} \\
+\convk{5}:& \real{8 \times 8 \times 64} \rightarrow \real{8 \times 8 \times 128} \\
+\avgpoolk{6}:& \real{8 \times 8 \times 128} \rightarrow \real{128} \\
+\FCk{7}:& \real{128} \rightarrow \real{10} \\
+\loss =& SCE(\xn{n}, \yhn{n})
 \end{split}
 \end{equation*}
-\todoin{this is missing the pooling layers and global average pooling}
 
-By changing $\psi_{(k)}^{(Conv)}$ with $\psi_{(k)}^{(ConvCompose)}$ and $\psi_{(k)}^{(Separable)}$ we obtain 3 versions of this model. Please remember that $\psi_{(k)}^{(ConvCompose)}$ requires an additional parameter for number of intermediate output channels. We use the number of output channels for that. We train each configuration for both MNIST and CIFAR-10 for a fair comparison.
+
+By changing $\convk{k}$ with $\lfkt{k}{ConvCompose}$ and $\lfkt{k}{Separable}$ we obtain 3 versions of this model. Please remember that $\lfkt{k}{ConvCompose}$ requires an additional parameter for number of intermediate output channels. We use the number of output channels for that. We train each configuration for both MNIST and CIFAR-10 for a fair comparison.
 
 \begin{figure}
 \vspace{-65px}
@@ -91,6 +90,7 @@ Inspired by ResNet (\cite{He:2015aa}, \cite{he2016identity}), we have created a 
 
 
 \subsection{Model Choices}
+These are the choices that we made while designing our neural network. We try to keep the model complexity low while trying to achieve maximum accuracy.
 \begin{figure}
 \vspace{-65px}
 \begin{center}
@@ -101,10 +101,9 @@ Inspired by ResNet (\cite{He:2015aa}, \cite{he2016identity}), we have created a 
 \end{figure}
 
 \begin{itemize}
-\item Except for the first convolutional operation, we have replaced every convolution layer with a separable convolution layer. The first layer has 3 input and 16 output channels. Therefore, for this layer the number of FLOP for a convolution operation ($K*K*m_{k-1}*m_k = 3*3*3*16 = 432$) is not sufficiently higher than a separable convolution ($K*K*m_{k-1} + m_{k-1}m_k = 3*3*3 + 3*16=75$). But for this layer, separable convolution comes with a disadvantage. By definition, it applies a depthwise convolution for color channels separately. We believe that the feature representations of the input are highly dependent on the color channels, therefore we argue that applying a depthwise convolution without mixing the colors is inefficient.
-\item ResNet-34 starts with a $7 \times 7$ convolutional kernel with strides of $2$. It is followed by a pooling layer with strides of 2. In our model we chose not to reduce the image size that early. We think that these two layers with strides of $2$ are used to speed up the network and kernel size 7 is used to minimize the loss of information. We argue that this early application of strides will lead to loss of information. 
+\item In \cite{He:2015aa}, ResNet-34 starts with a $7 \times 7$ convolution with strides of two and it is followed by max-pooling layer with strides of two and kernel size 2. If we think about this design choice, we see that the kernel size choice ($7 \times 7$) is to minimize the loss of information caused by two layers with strides of two. From another point of view, those two layers decrease the image size from $224 \times 224$ to $56 \times 56$. This decreases the complexity of future layers. When we apply such a convolution, the first convolutional layer becomes very complex compared to the rest of the network. To prevent that we propose a different first layer. We propose to change the first convolutional kernels from $7 \times 7$ to $3 \times 3$ and halve the output channels. Then, before applying the max pooling layer, we apply a $3 \times 3$ dephtwise convolution that multiplies the number of channels with two. Then we apply a $1 \times 1$ convolution (pointwise) to that.  By doing so we reduce the complexity of these layers about four times. We ran experiments comparing this proposed first layer and the original one.
+\item Except for the first convolutional operation, we have replaced every convolution layer with a separable convolution layer. The first layer has 3 input and 32 output channels. Therefore, for this layer the number of FLOPs for a convolution operation ($\kernelsize*\kernelsize*\mk{k-1}*\mk{k} = 3*3*3*16 = 864$) is sufficiently higher than a separable convolution ($\kernelsize*\kernelsize*\mk{k-1} + \mk{k-1}\mk{k} = 3*3*3 + 3*32=123$). But for this layer, separable convolution comes with a disadvantage. By definition, it applies a depthwise convolution for color channels separately. We believe that the feature representations of the input are dependent on the information from different color channels. Therefore we argue that applying a depthwise convolution without mixing the colors is inefficient, and not change the first convolution operation to a separable convolution.
 \item As \cite{he2016identity} proposed, we are using full pre-activation residual connections. See Figure \ref{fig:full-preactivation}.
-\item In \cite{He:2015aa}, ResNet-34 starts with a $7 \times 7$ convolution with strides of two and it is followed by max-pooling layer with strides of two and kernel size 2. If we think about this design choice, we see that the kernel size choice ($7 \times 7$) is to minimize the loss of information caused by two layers with strides of two. From another point of view, those two layers decrease the image size to $56 \times 56$ immediately. This decreases the complexity of future layers, therefore speeds up the computation. When we apply the previous changes, the first convolutional layer becomes very complex compared to the whole network. To prevent that we propose a different first layer. We propose to change the first convolutional kernels from $7 \times 7$ to $3 \times 3$ and halve the output channels. Then, before applying the max pooling layer, we apply a $3 \times 3$ dephtwise convolution that multiplies the number of channels with two. Then we apply a $1 \times 1$ convolution (pointwise) to that.  By doing so we reduce the complexity of these layers about four times. We ran experiments comparing the proposal and original.
 \end{itemize}
 
 \subsection{Training}
@@ -115,27 +114,31 @@ We divided the dataset for 50.000 training images and 10.000 validation images. 
 
 We preprocess the images using the routines defined in tensorflow tutorials\footnote{\url{https://github.com/tensorflow/models/tree/master/tutorials/image/cifar10}}\footnote{\url{https://www.tensorflow.org/tutorials/deep\_cnn\#cifar-10\_model}}. We start by taking $24 \times 24$ random crops and then we randomly flip the image to left or right. Then we randomly change the brightness and contrast. Then we normalize this image by subtracting the mean and dividing by variance by using a method called per\_image\_standardize.
 
-For CIFAR-10 training, we make some changes in our model. Since we have defined our input as a $24 \times 24$ image, we can apply a total of three strided ($s2$) convolutions. After three strided convolutions our image becomes of dimensions $3 \times 3$. After this point for our convolutions to make sense, we can't apply strided convolutions until we apply global average pooling. Therefore, we remove the strides from green and pink blocks in Figure \ref{fig:model} and we don't multiply the number of channels by two. 
+For CIFAR-10 training, we make some changes in our model. Since we have defined our input as a $24 \times 24$ image, we can apply a total of three convolutions with stride of two. After these, the image dimensions become $3 \times 3$. After this point for our convolutions to make sense, we can't apply convolutions with strides of two until we apply global average pooling. Therefore, we remove the strides from green and pink blocks in Figure \ref{fig:model} and we don't multiply the number of channels by two. 
 
 We train our model with CIFAR-10 to be able to verify our configuration before we train on ImageNet. 
 
 \subsubsection{ImageNet}
-We trained our model in ImageNet training dataset. We used momentum optimizer with momentum $0.9$ and learning rates $0.01$, $0.001$, $0.0001$, $0.00001$ for steps $0$ to $150.000$, $150.000$ to $300.000$, $300.000$ to $500.000$ and $500.000$ to $600.000$ respectively. We have defined the loss with SCE of the truth and prediction, with an addition of L2 norm of weights multiplied by $0.001$. We train our model using the training images for $600.000$ steps with batch size $128$.
+We trained our model in ImageNet training dataset. We used momentum optimizer with momentum $0.9$ and learning rates $0.01$, $0.001$, $0.0001$, $0.00001$ for steps $0$ to $150.000$, $150.000$ to $300.000$, $300.000$ to $500.000$ and $500.000$ to $600.000$ respectively. We have defined the loss with SCE of the truth and prediction, with an addition of L2 norm of weights multiplied by $0.001$. We train our model using the training images for $200.000$ steps with batch size $128$.
 
 We preprocess images using the routines defined for open sourced tensorflow implementation of inception network\footnote{\url{https://github.com/tensorflow/models/blob/master/slim/preprocessing/inception_preprocessing.py}}. We start by creating a new random bounding box overlapping with the original bounding box and make sure that 0.1 of the bounding box is inside our new bounding box. Then we crop this new bounding box and resize it using bilinear resizing algorithm. Then we randomly flip it to left or right. Then we distort the colors using random brightness and saturation. Then we normalize this input to the range of $[-1,1]$ by subtracting 0.5 and multiplying by 2. 
 
 \subsection{Pruning Nodes}
 \subsubsection{Pruning Residual Connections}
-The addition operation in the residual block creates a one-to-one relationship between different blocks. With the existence of such a relationship, it is not possible to prune a residual block's output nodes. Therefore we first group the residual blocks that are directly connected to each other. We consider the residual blocks that don't apply pooling/padding operation to be directly connected to the previous residual block. Then we calculate the indexes of nodes to keep in the output of every residual block. We union these indexes and prune the remaining nodes from the outputs of every directly connected residual block. We also prune the outputs of first pointwise convolution in the residual blocks separately. 
+The addition operation in the residual block creates a one-to-one relationship between the outputs of different blocks. With the existence of such a relationship, it is not possible to prune a residual block's output nodes without pruning the former or latter blocks. Therefore we first group the residual blocks that are directly connected to each other. We consider the residual blocks that don't apply pooling/padding operation to be directly connected to the previous residual block (in Figure \ref{fig:model}, consecutive straight arrows between dashed arrows are directly connected). Then we calculate the indexes of nodes to keep from the output of every residual block. We union these indexes and prune the remaining nodes from the outputs of every directly connected residual block. We also prune the operations within residual blocks separately. 
 
 \subsubsection{Pruning with Adam Optimizer}
-We have trained our network using Adam Optimizer (\cite{kingma2014adam}) as well. Adam optimizer keeps two moment matrices for each weight matrix. Therefore, if we are pruning the weights, we prune these matrices.
-
-\subsection{Pruning Weights}
-We set weight values that are very close to $0$ to $0$. By doing so, we see the difference in accuracy. Despite the fact that this operation does not change computational complexity, when combined with other methods (i.e. factorization), it will be useful. 
+We have trained our network using Adam Optimizer (\cite{kingma2014adam}) as well. Adam optimizer keeps two moment matrices for each weight matrix. Therefore, if we are pruning a node, we prune relevant moment matrices accordingly.
 
 \subsection{Factorization}
-We factorize the trained and pruned model. Using SVD we try to decompose the convolution, pointwise convolution and fully connected weights. To do that, we calculate $U$, $S$ and $V$ for each of the weight matrices. From $S$ we pick the most important values that are bigger than threshold value ($\epsilon$). If the decomposed weight matrix would reduce the number of operations, we replace the layer with two new layers, applying the decomposed weights consecutively. We experiment with two versions of this threshold value. One for determining values that are sufficiently small ($\epsilon = 10^{-3}$) and other for finding outliers ($\epsilon = \text{E}[S] - \text{Var}(S)$).
+\subsubsection{Pruning Weights}
+We set weight values that are very close to $0$ to $0$. Despite the fact that this operation does not change computational complexity, when combined with factorization, it helps achieving a lower rank decomposition.
+
+\subsubsection{Rounding Weights}
+We round the weights after the second decimal. Doing so helps factorization to have a lower rank. 
+
+\subsubsection{Factorization}
+We factorize the trained, pruned and rounded weights using SVD. We can not apply this method to depthwise convolution operation. So we only factorize the convolution, pointwise convolution and fully connected weights. To do that, we calculate $U$, $S$ and $V$ for each of the weight matrices. We lower the rank of the decomposition by one. Then we calculate the approximation error. If the approximation error is above a threshold, we check if this low rank decomposition would reduce the complexity. If it does, we use the decomposition. Otherwise we use the non-factorized weights. 
 
 \subsection{Quantization}
 We quantize the weights from 32-bits to 8-bit and run performance and accuracy benchmarks.
