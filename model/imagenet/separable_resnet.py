@@ -26,6 +26,7 @@ class SeparableResnet:
                 self.input, self.label = tf.cond(self.do_validate,
                                                  lambda: (self.valid_images, self.valid_label),
                                                  lambda: (self.training_input, self.training_label))
+                # self.input, self.label = self.training_input, self.training_label
                 self.label = tf.cast(self.label, tf.int32)
         else:
             self.input = tf.placeholder(dtype=tf.float32, shape=(self.batch_size, None, None, 3))
@@ -69,7 +70,8 @@ class SeparableResnet:
                                                   pruner=pruner)
             conv_1_1, pruner = self.blocks.batch_normalization(conv_1_1, pruner)
             conv_1_1, pruner = self.blocks.relu(conv_1_1, pruner)
-
+            # conv_1_1 = tf.nn.max_pool(conv_1_1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+        #
         with tf.variable_scope("conv_1_2"):
             conv_1_2, pruner = self.blocks.separable_conv2d_with_max_pool(conv_1_1,
                                                                           filter_size=3,
@@ -89,8 +91,7 @@ class SeparableResnet:
                                                                         input_channels=input_channels,
                                                                         output_channels=channels * channel_multiplier,
                                                                         strides=1,
-                                                                        activate_before_residual=False
-                                                                        if (residual_block == 1) else False,
+                                                                        activate_before_residual=False,
                                                                         pruner=pruner)
             input_channels = channels * channel_multiplier
 
@@ -127,20 +128,23 @@ class SeparableResnet:
                                                                         pruner=pruner)
             input_channels = channels * channel_multiplier
 
-        with tf.variable_scope("fc_1"):
+        with tf.variable_scope("fc"):
             # global average pooling
             residual_layer = tf.reduce_mean(residual_layer, [1, 2])
-            # residual_layer, pruner = self.blocks.normalized_fc(residual_layer,
-            #                                                    input_channels,
-            #                                                    output_channels=input_channels,
-            #                                                    pruner=pruner)
-            # residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
+            residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
+            residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
+            residual_layer, pruner = self.blocks.biased_fc(residual_layer,
+                                                           input_channels,
+                                                           output_channels=input_channels,
+                                                           pruner=pruner)
+            residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
+            residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
 
         with tf.variable_scope("output"):
-            logits, pruner = self.blocks.fc(residual_layer,
-                                            input_channels=input_channels,
-                                            output_channels=1001,
-                                            pruner=pruner)
+            logits, pruner = self.blocks.biased_fc(residual_layer,
+                                                   input_channels=input_channels,
+                                                   output_channels=1001,
+                                                   pruner=pruner)
             self.freeze_layer = logits
             self.last_pruner_node = LastNode()
             self.last_pruner_node.set_previous_op(pruner)
@@ -158,12 +162,13 @@ class SeparableResnet:
         with tf.variable_scope('train'):
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
-            boundaries = [120000, 250000, 400000, 600000]
-            values = [0.01, 0.001, 0.0001, 0.00001, 0.000001]
+            boundaries = [120000, 250000]
+            values = [0.1, 0.01, 0.001]
 
             self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
+            tf.summary.scalar('learning_rate', self.learning_rate)
 
-            self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.learning_rate, momentum=0.9)
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
 
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
@@ -181,9 +186,8 @@ class SeparableResnet:
     def decay(self):
         """L2 weight decay loss."""
         costs = list()
-        for var in tf.trainable_variables():
-            if var.op.name.find(r'_weights') > 0:
-                costs.append(tf.nn.l2_loss(var))
+        for var in self.blocks.get_decayed_variables():
+            costs.append(tf.nn.l2_loss(var))
 
         return tf.multiply(0.0001, tf.reduce_sum(costs))
 
@@ -192,9 +196,9 @@ class SeparableResnet:
         dataset = imagenet.get_split(split, dataset_dir)
         provider = slim.dataset_data_provider.DatasetDataProvider(
             dataset,
-            num_readers=4,
-            common_queue_capacity=2 * self.batch_size,
-            common_queue_min=2 * self.batch_size)
+            num_readers=16 if split is 'train' else 4,
+            common_queue_capacity=16 * self.batch_size,
+            common_queue_min=4 * self.batch_size)
         [image, label] = provider.get(['image', 'label'])
         image = inception_preprocessing.preprocess_image(image,
                                                          height=self.IMAGE_SIZE,
@@ -203,6 +207,6 @@ class SeparableResnet:
         return tf.train.shuffle_batch(
             [image, label],
             batch_size=self.batch_size,
-            num_threads=32,
-            capacity=2 * self.batch_size,
+            num_threads=16 if split is 'train' else 2,
+            capacity=8 * self.batch_size,
             min_after_dequeue=2 * self.batch_size)

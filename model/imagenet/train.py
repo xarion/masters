@@ -1,6 +1,7 @@
 import sys
 
 import tensorflow as tf
+import time
 
 from separable_resnet import SeparableResnet
 
@@ -13,7 +14,7 @@ flags.DEFINE_string('dataset_dir', '', 'Size of each training batch')
 
 # Preprocessing Flags (only affect training data, not validation data)
 CHECKPOINT_FOLDER = "checkpoints"
-CHECKPOINT_STEP = 800
+CHECKPOINT_STEP = 5000
 CHECKPOINT_NAME = "SEP-RESNET-34-imagenet"
 VALIDATION_STEP = 150
 
@@ -21,7 +22,7 @@ VALIDATION_STEP = 150
 
 class Train:
     def __init__(self):
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+        gpu_options = tf.GPUOptions()
 
         self.graph = tf.Graph()
 
@@ -34,8 +35,8 @@ class Train:
         with self.graph.as_default():
             self.session.run(tf.variables_initializer(tf.local_variables()))
             merged = tf.summary.merge_all()
-            train_writer = tf.summary.FileWriter("summaries/train", self.graph)
-            test_writer = tf.summary.FileWriter("summaries/test", self.graph)
+            train_writer = tf.summary.FileWriter("summaries/train", self.graph, flush_secs=30)
+            test_writer = tf.summary.FileWriter("summaries/test", self.graph, max_queue=1)
             saver = tf.train.Saver(max_to_keep=10)
 
             latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
@@ -51,8 +52,10 @@ class Train:
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=self.session, coord=coord)
             s = 0
+            timer = 0
             try:
                 while not coord.should_stop():
+                    timer += self.get_millis()
                     m, _, loss, step, = self.session.run([merged,
                                                           self.model.train_step,
                                                           self.model.loss,
@@ -60,19 +63,23 @@ class Train:
                                                          feed_dict={self.model.do_validate: False})
 
                     train_writer.add_summary(m, step)
+                    timer -= self.get_millis()
+
                     if step % VALIDATION_STEP == 0:
                         m, top1, = self.session.run([merged, self.model.top_1_accuracy],
                                                     feed_dict={self.model.do_validate: True})
                         test_writer.add_summary(m, step)
-
+                        self.log(str(timer / VALIDATION_STEP))
+                        timer = 0
                     if step % CHECKPOINT_STEP == 0:
                         saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
                     s = step
             except tf.errors.OutOfRangeError:
                 self.log('Done training -- epoch limit reached')
             finally:
-                self.log('getting a last checkpoint before dying')
-                saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=s)
+                if s != 0:
+                    self.log('getting a last checkpoint before dying')
+                    saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=s)
                 coord.request_stop()
 
             coord.join(threads)
@@ -81,9 +88,11 @@ class Train:
     @staticmethod
     def log(message):
         sys.stdout.write(message + "\n")
-        sys.stdout.flush()
         pass
 
+    @staticmethod
+    def get_millis():
+        return int(round(time.time() * 1000))
 
 def main(_):
     t = Train()
