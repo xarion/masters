@@ -22,7 +22,11 @@ def visit_nodes(graph):
 
 
 def prune(values):
-    values[np.abs(values) < 4e-1] = 0
+    absolute_values = np.abs(values)
+    mean_abs = np.mean(absolute_values)
+    lowest_min = 0.0005
+    threshold = np.maximum(mean_abs / 2000, lowest_min)
+    values[np.abs(values) <= threshold] = 0
     return values
 
 
