@@ -126,3 +126,4 @@ test_checkpoint_folder
 model/helpers/
 
 .DS_Store
+*.pb
