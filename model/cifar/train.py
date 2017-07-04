@@ -16,7 +16,7 @@ flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
 # Preprocessing Flags (only affect training data, not validation data)
 CHECKPOINT_FOLDER = "checkpoints"
 CHECKPOINT_STEP = 10000
-CHECKPOINT_NAME = "SEP-RESNET-34_ours"
+CHECKPOINT_NAME = "SEP-RESNET-34"
 VALIDATION_STEP = 150
 
 DATA_DIR = "./data"
@@ -41,7 +41,7 @@ class Train:
             self.session.run(tf.variables_initializer(tf.local_variables()))
             merged = tf.summary.merge_all()
             train_writer = tf.summary.FileWriter("summaries/train_ours", self.graph)
-            test_writer = tf.summary.FileWriter("summaries/test_ours", self.graph)
+            test_writer = tf.summary.FileWriter("summaries/test_ours", self.graph, max_queue=1)
             saver = tf.train.Saver(max_to_keep=10)
 
             latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
@@ -69,6 +69,7 @@ class Train:
                         m, top1, = self.session.run([merged, self.model.top_1_accuracy],
                                                     feed_dict={self.model.do_validate: True})
                         test_writer.add_summary(m, step)
+                        test_writer.flush()
 
                     if step % CHECKPOINT_STEP == 0:
                         saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
