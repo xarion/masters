@@ -14,9 +14,7 @@ import tensorflow as tf
 
 from graph_helper import copy_operation_to_graph, read_graph, write_graph
 
-ERROR_THRESHOLD = 0.001
-
-FORCED_DTYPE=tf.half
+ERROR_THRESHOLD = 0.005
 
 #  to reduce the number of parameters, this eq should hold true
 #  r < (m * n / (m + n))
@@ -45,6 +43,7 @@ def choose_rank(weights):
         r -= 1
 
     if r < ((m * n) / (m + n)):
+        print("%s -> %s %s %s" % (str(original_weights.shape), str(U.shape), str(s.shape), str(V.shape)))
         return U, s, V
     else:
         return original_weights
@@ -59,8 +58,8 @@ def create_svd_composition_constants(svd, op_name):
 
 
 def create_matmul_low_rank_composition_layer(input_tensor, w1, w2, op_name):
-    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s", dtype=FORCED_DTYPE)
-    w2 = tf.constant(w2, name=op_name + "/svd/v", dtype=FORCED_DTYPE)
+    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s")
+    w2 = tf.constant(w2, name=op_name + "/svd/v")
     intermediate_tensor = tf.matmul(input_tensor, w1, name=op_name + "/svd/intermediate")
     output_tensor = tf.matmul(intermediate_tensor, w2, name=op_name + "/svd/output")
     return w1, w2, intermediate_tensor, output_tensor
@@ -74,8 +73,8 @@ def create_conv2d_low_rank_composition_layer(input_tensor, w1, w2, previous_weig
     second_shape = [1, 1, -1, previous_weight_shape[-1]]
     w2 = np.reshape(w2, second_shape)
 
-    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s", dtype=FORCED_DTYPE)
-    w2 = tf.constant(w2, name=op_name + "/svd/v", dtype=FORCED_DTYPE)
+    w1 = tf.constant(w1, name=op_name + "/svd/u_dot_s")
+    w2 = tf.constant(w2, name=op_name + "/svd/v")
     intermediate_tensor = tf.nn.conv2d(input_tensor, filter=w1, strides=strides, padding=padding,
                                        name=op_name + "/svd/intermediate")
     output_tensor = tf.nn.conv2d(intermediate_tensor, filter=w2, strides=[1, 1, 1, 1], padding="SAME",
@@ -98,11 +97,18 @@ def low_rank_graph_approximation(graph, session):
             weight_tensor = None
             input_tensor = None
             for operation_input in operation.inputs:
-                if is_weight_type(operation_input.op.type):
-                    weight_tensor = operation_input.eval(session=session)
+                if is_weight_type(operation_input.op.type) and operation_input.name.find("Dropout") is -1:
+                    try:
+                        weight_tensor = operation_input.eval(session=session)
+                    except Exception as e:
+                        print operation_input.op.type
+                        print operation_input.name
+                        print e.message
                 else:
                     input_tensor = operation_input
+            print("choosing rank for %s" % operation.name)
             new_weights = choose_rank(weight_tensor)
+            # new_weights = weight_tensor
             if type(new_weights) == tuple:
                 us, v = create_svd_composition_constants(new_weights, operation.name)
                 if is_matmul(operation.type):
@@ -129,13 +135,6 @@ def low_rank_graph_approximation(graph, session):
                 replacements[operation.name] = output_tensor.op.name
             else:
                 new_operations.append(operation)
-        elif is_weight_type(operation.type):
-            value = operation.outputs[0].eval()
-            value = value.astype(np.float16)
-            with new_graph.as_default():
-                new_op = tf.constant(value, dtype=tf.half, name=operation.name).op
-                new_operations.append()
-                replacements[operation.name] =
         else:
             new_operations.append(operation)
 
@@ -160,8 +159,8 @@ def is_weight_type(operation_type):
     return operation_type == "Identity" or operation_type == "Const"
 
 
-graph = read_graph("separable_resnet-cifar-10.pb")
+graph = read_graph("inception_resnet_v2-trained.pb")
 with tf.Session(graph=graph) as sess:
     pruned_graph = low_rank_graph_approximation(graph, sess)
-    write_graph(pruned_graph, ["output/BiasAdd"], sess,
-                "separable_resnet-cifar-10-new-threshold-" + str(ERROR_THRESHOLD) + ".pb")
+    write_graph(pruned_graph, ["InceptionResnetV2/Logits/Logits/BiasAdd"], sess,
+                "inception_resnet_v2-new-threshold-" + str(ERROR_THRESHOLD) + ".pb")
