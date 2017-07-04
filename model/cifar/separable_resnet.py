@@ -55,6 +55,7 @@ class SeparableResnet:
         channels = 32 * channel_multiplier
         self.head_pruner_node = HeadNode()
         pruner = self.head_pruner_node
+
         with tf.variable_scope("conv_1_1"):
             conv_1_1, pruner = self.blocks.conv2d(preprocessed_input,
                                                   filter_size=3,
@@ -64,6 +65,7 @@ class SeparableResnet:
                                                   pruner=pruner)
             conv_1_1, pruner = self.blocks.batch_normalization(conv_1_1, pruner)
             conv_1_1, pruner = self.blocks.relu(conv_1_1, pruner)
+
 
         with tf.variable_scope("conv_1_2"):
             conv_1_2, pruner = self.blocks.separable_conv2d_with_max_pool(conv_1_1,
@@ -87,6 +89,7 @@ class SeparableResnet:
                                                                         activate_before_residual=False,
                                                                         pruner=pruner)
             input_channels = channels * channel_multiplier
+
         channel_multiplier *= 2
         for residual_block in range(1, 5):
             with tf.variable_scope("conv_3_%d" % residual_block):
@@ -97,6 +100,7 @@ class SeparableResnet:
                                                                         activate_before_residual=False,
                                                                         pruner=pruner)
                 input_channels = channels * channel_multiplier
+
         channel_multiplier *= 2
         for residual_block in range(1, 7):
             with tf.variable_scope("conv_4_%d" % residual_block):
@@ -107,6 +111,7 @@ class SeparableResnet:
                                                                         activate_before_residual=False,
                                                                         pruner=pruner)
             input_channels = channels * channel_multiplier
+
         channel_multiplier *= 2
         for residual_block in range(1, 4):
             with tf.variable_scope("conv_5_%d" % residual_block):
@@ -118,15 +123,22 @@ class SeparableResnet:
                                                                         pruner=pruner)
             input_channels = channels * channel_multiplier
 
-        with tf.variable_scope("output"):
-            residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
-            residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
+        with tf.variable_scope("fc"):
             # global average pooling
             residual_layer = tf.reduce_mean(residual_layer, [1, 2])
-
-            logits, pruner = self.blocks.biased_fc(residual_layer,
-                                                   input_channels=input_channels,
-                                                   output_channels=1001,
+            residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
+            residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
+            fc, pruner = self.blocks.biased_fc(residual_layer,
+                                               input_channels=input_channels,
+                                               output_channels=256,
+                                               pruner=pruner)
+            fc, pruner = self.blocks.batch_normalization(fc, pruner)
+            fc, pruner = self.blocks.relu(fc, pruner)
+            # fc = tf.cond(self.do_validate, lambda: fc, lambda: tf.nn.dropout(fc, keep_prob=0.25))
+        with tf.variable_scope("output"):
+            logits, pruner = self.blocks.biased_fc(fc,
+                                                   input_channels=256,
+                                                   output_channels=10,
                                                    pruner=pruner)
             self.freeze_layer = logits
             self.last_pruner_node = LastNode()
@@ -138,20 +150,21 @@ class SeparableResnet:
             self.one_hot_truth = tf.squeeze(tf.one_hot(self.label, 10))
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=self.logits, labels=self.one_hot_truth)
             self.loss = tf.reduce_mean(cross_entropy)
-            self.loss = self.loss
+            self.loss = self.loss + self.decay()
             tf.add_to_collection('losses', self.loss)
             tf.summary.scalar('loss_total', self.loss)
 
         with tf.variable_scope('train'):
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
-            boundaries = [20000, 30000, 40000]
-            values = [0.1, 0.01, 0.001, 0.0001]
+            boundaries = [20000, 30000]
+            values = [0.1, 0.01, 0.001]
 
             self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
+            tf.summary.scalar('learning_rate', self.learning_rate)
 
-            self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.learning_rate, momentum=0.9)
-            # self.optimizer = tf.train.AdamOptimizer()
+            self.optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
+
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
                 self.train_step = self.optimizer.minimize(self.loss, global_step=self.global_step)
@@ -168,8 +181,7 @@ class SeparableResnet:
     def decay(self):
         """L2 weight decay loss."""
         costs = list()
-        for var in tf.trainable_variables():
-            if var.op.name.find(r'_weights') > 0:
-                costs.append(tf.nn.l2_loss(var))
+        for var in self.blocks.get_decayed_variables():
+            costs.append(tf.nn.l2_loss(var))
 
-        return tf.multiply(0.0013, tf.reduce_sum(costs))
+        return tf.multiply(0.01, tf.reduce_sum(costs))
