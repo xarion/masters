@@ -12,20 +12,20 @@ Results
 \fi
 
 \section{Pruning}
-\subsection{Fully Connected Summation}
-By applying distortions to remaining weights between training cycles, we have achieved the optimum result, where we have only one hidden node remaining. When we didn't apply the distortions, after the first training cycle, we couldn't find any nodes to prune. Using both activation count and activation value statistics we found an ideal solution in $7 \pm 2$ training cycles. L1 or L2 regularization didn't make an obvious difference.
+\subsection{Fully Connected Layers}
+By applying distortions to remaining weights between training cycles, we have achieved the optimum result, where we have only one hidden node remaining. When we did not apply the distortions, after the first training cycle, we could not find any nodes to prune. Using both activation count and activation value statistics we found an ideal solution in $7 \pm 2$ training cycles. L1 or L2 regularization did not make an obvious difference.
 
-\subsection{MNIST Autoencoder}
-In this setting we didn't see any change when we applied the distortions. Compared to L1 regularization, with L2 regularization, we have seen some improvement in the number of nodes pruned and the final result. The most ideal case was, with no distortion, l2 regularization, pruning nodes based on activation value statistics under a threshold. We tried various thresholds, but average activation values minus two times the standard deviation of activation values worked the best. Using this setting, we have pruned the autoencoder from $1-32-64-32-1$ to $1-2-4-4-1$ nodes per layer. It took us $10\pm4$ training cycles to achieve these results. The loss we have achieved is very close to 0. Results can be seen in Figure \ref{fig:autoencoder_results}.
+\subsection{Convolutional Neural Networks}
+In this setting we did not see any change when we applied the distortions. Compared to L1 regularization, with L2 regularization, we have seen some improvement in the number of nodes pruned and the final result. The most ideal case was, with no distortion, l2 regularization, pruning nodes based on activation value statistics under a threshold. We tried various thresholds, but average activation values minus two times the standard deviation of activation values worked the best. Using this setting, we have pruned the autoencoder from $1-32-64-32-1$ to $1-2-4-4-1$ nodes per layer. It took us $10\pm4$ training cycles to achieve these results. The loss we have achieved is very close to 0. Results can be seen in Figure \ref{fig:autoencoder_results}.
 
-\begin{figure}[h]
+\begin{figure}[!h]
 \centering
 \includegraphics[width=1\linewidth]{images/autoencoder_pruned.png}
 \caption{Sample results from the validation dataset after pruning}
 \label{fig:autoencoder_results}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[!h]
   \vspace{-45px}
   \centering
   \begin{subfigure}{.79\textwidth}
@@ -41,19 +41,22 @@ In this setting we didn't see any change when we applied the distortions. Compar
         \includegraphics[width=1\linewidth]{images/convolution-comparison-legend.pdf}
         \caption{Color codes}
   \end{subfigure}
-  \caption{Top-1 accuracy comparison of kernel composition, convolution and separable convolution operations. Accuracies for sub-samples of the validation dataset, compared after every training step. We see the thick lines representing smoothed values.}
+  \caption{Top-1 accuracy comparison of kernel composing convolution, convolution and separable convolution operations. Accuracies for sub-samples of the validation dataset, compared after every training step. We see the thick lines representing smoothed values.}
   \label{fig:conv-comparison}
 \end{figure}
 
 \section{Convolution Operation Alternatives}
-By comparing the convolution operation alternatives we try to figure out if separable convolution or kernel composition methods can achieve similar performance to the convolution operation. In our experiments we have seen that kernel composing convolutions and convolutions are almost similar in terms of accuracy performance. We have seen that separable convolutions are slightly better than both operations. We have seen that separable convolutions achieve $82.3\%$ mean top-1 validation accuracy while regular convolutions achieve $81.6\%$ and kernel composing convolutions achieve $81.8\%$ in the whole validation dataset. Also in Figure \ref{fig:conv-comparison} we see the a validation performance comparison for these operations. 
+\subsection{MNIST}
+In our experiments with MNIST dataset, we have not seen a comparable difference between experiments with different operations. All models have achieved $99\pm0.3\%$ top-1 accuracy.
+\subsection{CIFAR-10}
+In our experiments with CIFAR-10 dataset, we have seen that kernel composing convolutions and convolutions are almost similar in terms of accuracy performance. We have seen that separable convolutions are slightly better than both operations. We have seen that separable convolutions achieve $82.3\%$ mean top-1 validation accuracy while regular convolutions achieve $81.6\%$ and kernel composing convolutions achieve $81.8\%$ in the whole validation dataset. Also in Figure \ref{fig:conv-comparison} we see the validation performance comparison for these operations. In our experiments we could not see any difference between adding non-linear separable convolutions and separable convolutions. 
 
-\subsection{Non-Linearity in Separable Convolutions}
-In our experiments we couldn't see any difference between adding non-linear separable convolutions and separable convolutions. 
-
+\section{Separable Resnet}
+This section is left blank intentionally. We are waiting for the results of ImageNet trained network.
+\iffalse
 \subsection{Proposed First Convolutional Layer}
-In our experiments we didn't see many differences in terms of accuracy. Even though, our proposed method starts a bit better, both models converge on $85\%$ top-1 accuracy. 
-\begin{figure}
+In our experiments we did not see many differences in terms of accuracy. Even though, our proposed method starts a bit better, both models converge on $85\%$ top-1 accuracy. 
+\begin{figure}[!h]
   \vspace{-45px}
   \centering
   \begin{subfigure}{.79\textwidth}
@@ -72,6 +75,8 @@ In our experiments we didn't see many differences in terms of accuracy. Even tho
   \caption{Top-1 accuracy comparison of 7 by 7 convolution and our proposed convolution as the first layer(s) of the model. Accuracies for sub-samples of the validation dataset, compared after every training step. We see the thick lines representing smoothed values.}
   \label{fig:proposed-comparison}
 \end{figure}
+\fi
+
 
 \section{Benchmarks and Comparisons}
 We have benchmarked 20 models in different sizes and shapes with our benchmarking device. Here we will report the key models that made a difference.
@@ -80,7 +85,7 @@ Inception-Resnet-v2 (\cite{DBLP:journals/corr/SzegedyIV16}) has a model size of 
 
 We have seen that ResNet-50 (\cite{He:2015aa}, \cite{he2016identity}) with a model size of 100 MB got executed for 1.3-1.7 inferences per second with a cpu-utilization of 2.7. We found this amount to be great compared to the previous model.  
 
-Among many models we have inspected, only \textit{1.0 MobileNet-224} (\cite{howard2017mobilenets}) performed comparably as fast as our separable resnet. 1.0 Mobilenet-224 had a model size of 17.1 MB and our benchmarking device could perform 5 to 6 inferences per second on with a cpu-utilization of 2.7. On paper, this model has  We didn't test smaller versions of MobileNet because they are far from having a state of the art accuracy.
+Among many models we have inspected, only 1.0 MobileNet-224 (\cite{howard2017mobilenets}) performed faster than our separable resnet. 1.0 Mobilenet-224 had a model size of 17.1 MB and our benchmarking device could perform 5 to 6 inferences per second on with a cpu-utilization of 2.7. On paper, this model has  We did not test smaller versions of MobileNet because they are far from having a state of the art accuracy.
 
 Our model, separable resnet had a model size of 9.9 MB. We could perform 4 to 5 inferences per second with a cpu-utilization of 3.1 on our benchmarking device.
 

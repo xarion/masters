@@ -12,7 +12,7 @@
     What is the implication of the present results for other unanswered questions in earth sciences, ecology, environmental policy, etc....?
     Multiple hypotheses: There are usually several possible explanations for results. Be careful to consider all of these rather than simply pushing your favorite one. If you can eliminate all but one, that is great, but often that is not possible with the data in hand. In that case you should give even treatment to the remaining possibilities, and try to indicate ways in which future work may lead to their discrimination.
     Avoid bandwagons: A special case of the above. Avoid jumping a currently fashionable point of view unless your results really do strongly support them. 
-    What are the things we now know or understand that we didn't know or understand before the present work?
+    What are the things we now know or understand that we did not know or understand before the present work?
     Include the evidence or line of reasoning supporting each interpretation.
     What is the significance of the present results: why should we care? 
 
@@ -27,28 +27,32 @@ Similarly, if we apply factorization on a very large model, we gain huge speed u
 \section{Using Tensorflow}
 We have been using latest versions of Tensorflow. It comes with some advantages, such as:
 \begin{itemize}
-\item We don't worry about implementing lower level operations.
-\item Most of the operations are highly optimized form any platforms and devices. If we were to implement a model in C++, we'd have to implement it twice, one for training in GPU and another for running in the mobile device. 
+\item We do not implement lower level operations (such as convolutions). It gives us the opportunity to focus on higher level implementations, such as pruning, or factorization. 
+\item Most of the operations are highly optimized for many platforms and devices. If we were to implement a model in C++, we'd have to implement it twice, one for training in GPU and another for running in the mobile device. 
 \item Tensorflow provides the necessary tools to deploy models on mobile devices.
 \end{itemize}
 
 And it comes with some disadvantages, such as:
 
 \begin{itemize}
-\item When we started our work, tensorflow was in version 0.10. Now it is on 1.2. There have been 4 major releases that we had to modify our codebase for.
+\item When we started our work, Tensorflow was in version 0.10. By the date we write this, it is on 1.2. There have been 4 major releases that we had to modify our codebase for.
 \item Not all operations are properly implemented. For example, before version 1.2, Tensorflow implementation of separable convolutions were not very well optimized. They were as fast as convolution operations. Before that we could only hope that they would optimize their implementation.
-\item It is extremely difficult to implement operations (e.g. ef operator \cite{afrasiyabi2017energy}) or play around with existing ones because (as of Tensorflow 1.2) there exists no documentation describing C++ internals and build procedures. Since we chose not to go into i
-\item Tensorflow doesn't provide tools to implement low-bit variables (e.g. a 2-bit integer). So it is not possible to implement some methods that make use of variable width decimals. This limitation makes some methods impossible to use or useless. For example it is not possible to use methods that represent weights using variable width decimals. Also, storing low bit weight indices in combination with a small global weight array to reduce the model size is useless. Since we can't use low bit integers to represent these indices, our model size doesn't shrink at all.
+\item It is difficult to implement operations (e.g. ef operator \cite{afrasiyabi2017energy}) or play around with existing ones. The documentation describing C++ internals and build procedures (as of Tensorflow 1.2) are not good enough. 
+\item Tensorflow does not provide tools to implement low-bit variables (e.g. a 2-bit integer). So it is not possible to implement some methods that make use of variable width decimals. This limitation makes some methods impossible to use or useless. For example it is not possible to use methods that represent weights using variable width decimals. Also, storing low bit weight indices in combination with a small global weight array to reduce the model size is useless. Since we can not use low bit integers to represent these indices, our model size does not shrink at all.
 \end{itemize}
+
+\section{Operation Comparison}
+In Section \ref{sec:conv_alternatives}, we have defined a neural network to compare convolution, separable convolution and kernel composing convolution operations. Before our experiments, we have tried to find the best settings for some parameters, such as learning rate, regularization constant and optimizer. We think that using the same settings may have influenced our results. Especially because the number of parameters change considerably when we use separable convolutions, instead of convolutions. 
 
 \iffalse
 \section{Working with ImageNet}
 Most of the research compares models based on ImageNet\cite{howard2017mobilenets} 
 \fi
-\section{Model Comparison}
-Comparing models that aim for mobile devices is hard. First, there are device/chip specific properties (i.e. l1-cache size and bandwidth speed) that in theory effect the speed of the model greatly. In theory, mobile device performance of a model depends on the amount of floating point multiplications and the model size. The amount of floating point multiplications would modify the model speed almost linearly. The model size is important, because in theory, it determines the amount of data transferred from memory to l1-cache. If our model and the required space to perform the operations in it are sufficiently small to fit in the l1-cache, it would speed up our model greatly by getting rid of all cache-misses. If these were bigger than the l1-cache, it would create a lack of storing and loading from memory, which would lead to waiting for data coming from memory (memory bandwidth bottleneck). So in theory, model size would effect the performance non-linearly. In practice, we couldn't find a good way of predicting the number of inferences based on number of floating point operations and model size. 
 
-One thing that greatly affects this process is the implementation of the model executor. We think that the tensorflow implementation of the model executor is not meant to load the whole model on the cpu. 
+\section{Model Comparison}
+Comparing models that aim for mobile devices is difficult. First, there are device/chip specific properties (i.e. l1-cache size and bandwidth speed) that in theory effect the speed of the model greatly. In theory, mobile device performance of a model depends on the amount of floating point multiplications and the model size. The amount of floating point multiplications would modify the model speed almost linearly. The model size is important, because in theory, it determines the amount of data transferred from memory to l1-cache. If our model and the required space to perform the operations in it are sufficiently small to fit in the l1-cache, it would speed up our model greatly by getting rid of all cache-misses. If these were bigger than the l1-cache, it would create a lack of storing and loading from memory, which would lead to waiting for data coming from memory (memory bandwidth bottleneck). So in theory, model size would effect the performance non-linearly. In practice, we could not find a good way of predicting the number of inferences based on number of floating point operations and model size. 
+
+One thing that greatly affects this process is the implementation of the model executor. We think that the Tensorflow implementation of the model executor is not meant to load the whole model on the cpu. 
 
 \iffalse
 But as we understood, Tensorflow implementation is not executing models on model level, but on layer level (based on variable scopes). We think that is the case because when we look at a sufficiently small model's benchmarking results, we saw that the amount of context switches were equal to the number of variable scopes times the number of inferences.
