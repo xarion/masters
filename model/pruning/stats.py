@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from model.pruning import OpStats
-from model.pruning.helpers import sorted_union, assign
+from model.pruning.helpers import assign
 
 
 class ActivationValueStats(OpStats):
@@ -13,30 +13,36 @@ class ActivationValueStats(OpStats):
         with tf.variable_scope("stats"):
             stat_tensor = self.get_stat_tensor()
             axes_to_reduce = range(0, len(tf.unstack(self.op.get_shape())) - 1)
-            new_stat_tensor = tf.add(tf.reduce_sum(self.op, axis=axes_to_reduce), stat_tensor, name="update_stats")
+            current_means, current_variances = tf.nn.moments(self.op, axes=axes_to_reduce)
+
+            previous_means = stat_tensor[0]
+            previous_variances = stat_tensor[1]
+            previous_counts = stat_tensor[2]
+            new_counts = previous_counts + 1
+
+            new_means = (previous_means * previous_counts + current_means) / new_counts
+            new_variances = (((previous_variances + tf.square(current_means - new_means)) * previous_counts
+                              + (current_variances + tf.square(previous_means - new_means)))
+                             / new_counts)
+
+            new_stat_tensor = tf.convert_to_tensor([new_means, new_variances, new_counts])
             stat_tensor_assign_op = assign(stat_tensor, new_stat_tensor)
         return [stat_tensor_assign_op]
 
     def get_stat_tensor(self):
         if not self.stat_op:
             self.stat_op = tf.get_variable(self.op.name.split(':')[0],
-                                           shape=self.op.get_shape()[-1],
+                                           shape=[3, self.op.get_shape()[-1]],
                                            initializer=tf.zeros_initializer())
         return self.stat_op
 
     def get_dimensions_to_keep(self):
         with tf.variable_scope("stats"):
             stat_tensor = self.get_stat_tensor()
-            (count, sum, sum_sqr, shift) = tf.nn.sufficient_statistics(stat_tensor, axes=[0])
-            stdev = tf.sqrt((sum_sqr - (sum * sum) / count) / (count - 1))
-            mean = sum / count
-            higher_threshold = mean + stdev
-            higher_threshold = tf.cond(higher_threshold < 0,
-                                       lambda: tf.constant(0, dtype=tf.float32),
-                                       lambda: higher_threshold)
-            lower_threshold = mean - stdev
-            return tf.cast(tf.squeeze(tf.where(tf.logical_and(stat_tensor >= higher_threshold,
-                                                              stat_tensor <= lower_threshold))),
+            means = stat_tensor[0]
+            variances = stat_tensor[1]
+
+            return tf.cast(tf.squeeze(tf.where(tf.logical_and(means * 0.5 < variances, means * 1.5 > variances))),
                            dtype=tf.int32,
                            name="dimensions_to_keep")
 
@@ -114,5 +120,3 @@ class ActivationCorrelationStats(OpStats):
         raw_keep_dims = tf.where(non_uniqueness_matrix <= higher_threshold)
 
         return tf.cast(tf.squeeze(raw_keep_dims), dtype=tf.int32, name="dimensions_to_keep")
-
-

@@ -11,7 +11,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
-
+flags.DEFINE_integer('run_id', 1, 'Size of each training batch')
 # Preprocessing Flags (only affect training data, not validation data)
 CHECKPOINT_FOLDER = "checkpoints"
 CHECKPOINT_STEP = 10000
@@ -38,20 +38,10 @@ class Train:
         with self.graph.as_default():
             self.session.run(tf.variables_initializer(tf.local_variables()))
             merged = tf.summary.merge_all()
-            train_writer = tf.summary.FileWriter("summaries/train_sep_relubn", self.graph)
-            test_writer = tf.summary.FileWriter("summaries/test_sep_relubn", self.graph)
+            train_writer = tf.summary.FileWriter("summaries/train_sep_relubn_%d" % FLAGS.run_id, self.graph)
+            test_writer = tf.summary.FileWriter("summaries/test_sep_relubn_%d" % FLAGS.run_id, self.graph)
 
-            saver = tf.train.Saver(max_to_keep=2)
-
-            latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
-            self.session.run(tf.variables_initializer(tf.local_variables()))
-
-            if latest_checkpoint:
-                self.log("loading from checkpoint file: " + latest_checkpoint)
-                saver.restore(self.session, latest_checkpoint)
-            else:
-                self.log("checkpoint not found, initializing variables.")
-                self.session.run(tf.variables_initializer(tf.global_variables()))
+            self.session.run(tf.variables_initializer(tf.global_variables()))
 
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(sess=self.session, coord=coord)
@@ -64,17 +54,32 @@ class Train:
                                                          feed_dict={self.model.do_validate: False})
 
                     train_writer.add_summary(m, step)
-                    m, top1, = self.session.run([merged, self.model.top_1_accuracy],
-                                                feed_dict={self.model.do_validate: True})
-                    test_writer.add_summary(m, step)
 
-                    if step % CHECKPOINT_STEP == 0:
-                        saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)
+                    if step % 150 == 0:
+                        m, top1, = self.session.run([merged, self.model.top_1_accuracy],
+                                                    feed_dict={self.model.do_validate: True})
+                        test_writer.add_summary(m, step)
+
+                    if step >= 49950:
+                        count = 0
+                        top_1_sum = .0
+                        while count < 10000:
+                            count += FLAGS.batch_size
+                            m, top1, = self.session.run([merged, self.model.top_1_accuracy],
+                                                        feed_dict={self.model.do_validate: True})
+                            top_1_sum += top1.sum()
+                        count -= FLAGS.batch_size
+                        self.log('finished training, validation top_1 accuracy is %.4f' %
+                                 (top_1_sum / (count / FLAGS.batch_size)))
+                        raise tf.errors.OutOfRangeError(None, None, "Finished")
+
             except tf.errors.OutOfRangeError:
                 self.log('Done training -- epoch limit reached')
             finally:
+                train_writer.flush()
+                test_writer.flush()
                 coord.request_stop()
-
+            
             coord.join(threads)
             self.session.close()
 

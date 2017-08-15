@@ -73,13 +73,12 @@ class SeparableResnet:
             # conv_1_1 = tf.nn.max_pool(conv_1_1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
         #
         with tf.variable_scope("conv_1_2"):
-            conv_1_2, pruner = self.blocks.separable_conv2d_with_max_pool(conv_1_1,
-                                                                          filter_size=3,
-                                                                          input_channels=channels,
-                                                                          depthwise_multiplier=2,
-                                                                          output_channels=channels * 2,
-                                                                          strides=1,
-                                                                          pruner=pruner)
+            conv_1_2, pruner = self.blocks.residual_separable(conv_1_1,
+                                                              input_channels=channels,
+                                                              output_channels=channels * 2,
+                                                              strides=2,
+                                                              activate_before_residual=False,
+                                                              pruner=pruner)
         residual_layer = conv_1_2
         channels *= 2
         input_channels = channels * channel_multiplier
@@ -210,3 +209,6 @@ class SeparableResnet:
             num_threads=16 if split is 'train' else 2,
             capacity=8 * self.batch_size,
             min_after_dequeue=2 * self.batch_size)
+
+a = SeparableResnet(training=False)
+print a.blocks.total_parameters

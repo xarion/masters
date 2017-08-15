@@ -131,9 +131,10 @@
 \newcommand{\CE}{\textrm{CE}}
 \newcommand{\SCE}{\textrm{SCE}}
 
+\newcommand*{\thead}[1]{\multicolumn{1}{c}{\bfseries #1}}
 
 \title{
-{\textbf{Master's Thesis}\\Optimizing Neural Networks for Mobile Devices}\\
+{\textbf{Master's Thesis}\\Faster Convolutional Neural Networks}\\
 {\large Radboud University, Nijmegen}
 }
 \author{Erdi \c{C}all{\i}}
@@ -141,7 +142,7 @@
 \begin{document}
 \maketitle
 \chapter*{Abstract}
-Recently, convolutional neural networks became the state of the art method in image processing. However, there exists a gap between their potential and real life applications. This gap is caused by the computational requirements of convolutional neural networks. State of the art convolutional neural networks require heavy computations. We investigate methods to reduce the computational requirements and preserve the accuracy. Then we combine these methods to create a new model that is comparable with state of the art. We benchmark our model on mobile devices and compare its performance with others.
+There exists a gap between the computational cost of state of the art image processing models and the processing power of publicly available devices. This gap is reducing the applicability of these promising models. Trying to bridge this gap, first we investigate some methods to reduce the computational cost of a model. Second, we look for alternative operations to design state of the art models. Using these alternative operations, we train a model for CIFAR-10 classification task. Our model achieves similar results ($91.1\%$ top-1 accuracy) to ResNet-20 ($91.25\%$ top-1 accuracy) using a 581 KB model, requiring 3 times less operations. We observe that it is not possible to reduce the computational cost of such a model using the techniques we have investigated previously.
 %\chapter*{Dedication}
 %To mum and dad
 

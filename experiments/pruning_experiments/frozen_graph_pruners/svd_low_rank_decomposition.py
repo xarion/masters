@@ -14,7 +14,7 @@ import tensorflow as tf
 
 from graph_helper import copy_operation_to_graph, read_graph, write_graph
 
-ERROR_THRESHOLD = 0.005
+ERROR_THRESHOLD = 0.001
 
 #  to reduce the number of parameters, this eq should hold true
 #  r < (m * n / (m + n))
@@ -91,6 +91,7 @@ def low_rank_graph_approximation(graph, session):
     #  We don't care about replaced weights,
     #  because when writing the graph, we're using `graph_util.convert_variables_to_constants`
     #  which rewrites the whole graph by ignoring the unused variables/constants
+    total_parameters = 0L
     for operation in graph.get_operations():
         new_operations = []
         if is_decomposable(operation.type):
@@ -100,6 +101,8 @@ def low_rank_graph_approximation(graph, session):
                 if is_weight_type(operation_input.op.type) and operation_input.name.find("Dropout") is -1:
                     try:
                         weight_tensor = operation_input.eval(session=session)
+                        shape = np.shape(weight_tensor)
+                        total_parameters += np.prod(shape)
                     except Exception as e:
                         print operation_input.op.type
                         print operation_input.name
@@ -159,8 +162,8 @@ def is_weight_type(operation_type):
     return operation_type == "Identity" or operation_type == "Const"
 
 
-graph = read_graph("inception_resnet_v2-trained.pb")
+graph = read_graph("separable_resnet-cifar-10.pb")
 with tf.Session(graph=graph) as sess:
     pruned_graph = low_rank_graph_approximation(graph, sess)
-    write_graph(pruned_graph, ["InceptionResnetV2/Logits/Logits/BiasAdd"], sess,
-                "inception_resnet_v2-new-threshold-" + str(ERROR_THRESHOLD) + ".pb")
+    write_graph(pruned_graph, ["output/BiasAdd"], sess,
+                "separable_resnet-cifar-10-factorized-threshold-" + str(ERROR_THRESHOLD) + ".pb")

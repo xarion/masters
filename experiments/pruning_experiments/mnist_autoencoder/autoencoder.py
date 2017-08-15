@@ -43,7 +43,7 @@ class Autoencoder:
             encoder_1, pruner = self.blocks.conv2d(self.reshaped_input,
                                                    filter_size=3,
                                                    input_channels=1,
-                                                   output_channels=32,
+                                                   output_channels=2,
                                                    strides=2,
                                                    pruner=pruner)
 
@@ -53,8 +53,8 @@ class Autoencoder:
         with tf.variable_scope("encoder_2"):
             encoder_2, pruner = self.blocks.conv2d(encoder_1,
                                                    filter_size=3,
-                                                   input_channels=32,
-                                                   output_channels=64,
+                                                   input_channels=2,
+                                                   output_channels=4,
                                                    strides=2,
                                                    pruner=pruner)
             encoder_2, pruner = self.blocks.batch_normalization(encoder_2, pruner)
@@ -63,9 +63,9 @@ class Autoencoder:
         with tf.variable_scope("decoder_1"):
             decoder_1, pruner = self.blocks.deconvolution(encoder_2,
                                                           filter_size=3,
-                                                          input_channels=64,
-                                                          output_channels=32,
-                                                          output_dimensions=[self.batch_size, 14, 14, 32],
+                                                          input_channels=4,
+                                                          output_channels=3,
+                                                          output_dimensions=[self.batch_size, 14, 14, 3],
                                                           strides=2,
                                                           pruner=pruner)
             decoder_1, pruner = self.blocks.batch_normalization(decoder_1, pruner)
@@ -74,7 +74,7 @@ class Autoencoder:
         with tf.variable_scope("decoder_2"):
             decoder_2, pruner = self.blocks.deconvolution(decoder_1,
                                                           filter_size=3,
-                                                          input_channels=32,
+                                                          input_channels=3,
                                                           output_channels=1,
                                                           output_dimensions=[self.batch_size, 28, 28, 1],
                                                           strides=2,

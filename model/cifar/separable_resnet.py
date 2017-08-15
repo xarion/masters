@@ -61,60 +61,36 @@ class SeparableResnet:
                                                   filter_size=3,
                                                   input_channels=3,
                                                   output_channels=channels,
-                                                  strides=2,
+                                                  strides=1,
                                                   pruner=pruner)
-            conv_1_1, pruner = self.blocks.batch_normalization(conv_1_1, pruner)
-            conv_1_1, pruner = self.blocks.relu(conv_1_1, pruner)
-
-
-        with tf.variable_scope("conv_1_2"):
-            conv_1_2, pruner = self.blocks.separable_conv2d_with_max_pool(conv_1_1,
-                                                                          filter_size=3,
-                                                                          input_channels=channels,
-                                                                          depthwise_multiplier=2,
-                                                                          output_channels=channels * 2,
-                                                                          strides=1,
-                                                                          pruner=pruner)
-        residual_layer = conv_1_2
-        channels *= 2
+        residual_layer = conv_1_1
         input_channels = channels * channel_multiplier
 
-        channel_multiplier *= 1
-        for residual_block in range(1, 4):
-            with tf.variable_scope("conv_2_%d" % residual_block):
-                residual_layer, pruner = self.blocks.residual_separable(residual_layer,
-                                                                        input_channels=input_channels,
-                                                                        output_channels=channels * channel_multiplier,
-                                                                        strides=1,
-                                                                        activate_before_residual=False,
-                                                                        pruner=pruner)
-            input_channels = channels * channel_multiplier
+        # channel_multiplier *= 1
+        # for residual_block in range(1, 4):
+        #     with tf.variable_scope("conv_2_%d" % residual_block):
+        #         residual_layer, pruner = self.blocks.residual_separable(residual_layer,
+        #                                                                 input_channels=input_channels,
+        #                                                                 output_channels=channels * channel_multiplier,
+        #                                                                 strides=1,
+        #                                                                 activate_before_residual=residual_block == 1,
+        #                                                                 pruner=pruner)
+        #         input_channels = channels * channel_multiplier
 
         channel_multiplier *= 2
-        for residual_block in range(1, 5):
+        for residual_block in range(1, 4):
             with tf.variable_scope("conv_3_%d" % residual_block):
                 residual_layer, pruner = self.blocks.residual_separable(residual_layer,
                                                                         input_channels=input_channels,
                                                                         output_channels=channels * channel_multiplier,
-                                                                        strides=1,
+                                                                        strides=2 if residual_block == 1 else 1,
                                                                         activate_before_residual=False,
                                                                         pruner=pruner)
                 input_channels = channels * channel_multiplier
 
         channel_multiplier *= 2
-        for residual_block in range(1, 7):
-            with tf.variable_scope("conv_4_%d" % residual_block):
-                residual_layer, pruner = self.blocks.residual_separable(residual_layer,
-                                                                        input_channels=input_channels,
-                                                                        output_channels=channels * channel_multiplier,
-                                                                        strides=1,
-                                                                        activate_before_residual=False,
-                                                                        pruner=pruner)
-            input_channels = channels * channel_multiplier
-
-        channel_multiplier *= 2
         for residual_block in range(1, 4):
-            with tf.variable_scope("conv_5_%d" % residual_block):
+            with tf.variable_scope("conv_4_%d" % residual_block):
                 residual_layer, pruner = self.blocks.residual_separable(residual_layer,
                                                                         input_channels=input_channels,
                                                                         output_channels=channels * channel_multiplier,
@@ -128,16 +104,16 @@ class SeparableResnet:
             residual_layer = tf.reduce_mean(residual_layer, [1, 2])
             residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
             residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
-            fc, pruner = self.blocks.biased_fc(residual_layer,
-                                               input_channels=input_channels,
-                                               output_channels=256,
-                                               pruner=pruner)
-            fc, pruner = self.blocks.batch_normalization(fc, pruner)
-            fc, pruner = self.blocks.relu(fc, pruner)
-            # fc = tf.cond(self.do_validate, lambda: fc, lambda: tf.nn.dropout(fc, keep_prob=0.25))
+            # residual_layer, pruner = self.blocks.biased_fc(residual_layer,
+            #                                                input_channels=input_channels,
+            #                                                output_channels=input_channels,
+            #                                                pruner=pruner)
+            # residual_layer, pruner = self.blocks.batch_normalization(residual_layer, pruner)
+            # residual_layer, pruner = self.blocks.relu(residual_layer, pruner)
+
         with tf.variable_scope("output"):
-            logits, pruner = self.blocks.biased_fc(fc,
-                                                   input_channels=256,
+            logits, pruner = self.blocks.biased_fc(residual_layer,
+                                                   input_channels=input_channels,
                                                    output_channels=10,
                                                    pruner=pruner)
             self.freeze_layer = logits
@@ -157,8 +133,8 @@ class SeparableResnet:
         with tf.variable_scope('train'):
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
 
-            boundaries = [20000, 30000]
-            values = [0.1, 0.01, 0.001]
+            boundaries = [120000, 180000, 240000]
+            values = [0.1, 0.01, 0.001, 0.0001]
 
             self.learning_rate = tf.train.piecewise_constant(self.global_step, boundaries, values)
             tf.summary.scalar('learning_rate', self.learning_rate)
@@ -185,3 +161,6 @@ class SeparableResnet:
             costs.append(tf.nn.l2_loss(var))
 
         return tf.multiply(0.01, tf.reduce_sum(costs))
+
+a = SeparableResnet(training=False)
+print a.blocks.total_parameters

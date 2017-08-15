@@ -20,13 +20,21 @@ class SeparableConv2D(OpPruning):
         OpPruning.__init__(self)
         self.depthwise_weight_tensor = depthwise_weight_tensor
         self.pointwise_weight_tensor = pointwise_weight_tensor
+        #  mid_pruners are the operations between depthwise and pointwise convolutions
+        self.mid_pruners = list()
 
     def prune_input_channel(self, keep_indices):
         self.depthwise_weight_tensor = self.prune(self.depthwise_weight_tensor, keep_indices, axis=2)
         self.pointwise_weight_tensor = self.prune(self.pointwise_weight_tensor, keep_indices, axis=2)
+        for extension in self.mid_pruners:
+            extension.prune_output_channel(keep_indices)
 
     def prune_output_channel(self, keep_indices):
         self.pointwise_weight_tensor = self.prune(self.pointwise_weight_tensor, keep_indices, axis=3)
+
+    def extend(self, pruner):
+        self.mid_pruners.append(pruner)
+
 
 
 class ContribLayersBatchNorm(OpPruning):

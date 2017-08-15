@@ -9,5 +9,6 @@ def sorted_union(a, b):
     return tf.cast(tf.multiply(reverse_sorted_set.values, -1), dtype=tf.int32,
                    name="union/" + a.name.split(":")[0] + '/and/' + b.name.split(":")[0])
 
+
 def assign(a, b):
     return tf.assign(a, b, validate_shape=False, name="assign/" + b.name.split(":")[0] + '/to/' + a.name.split(":")[0])

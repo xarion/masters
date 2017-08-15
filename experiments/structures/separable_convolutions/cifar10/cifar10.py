@@ -73,8 +73,8 @@ class Cifar10Model:
                                                           output_channels=32,
                                                           strides=1,
                                                           pruner=pruner)
-            avg_pool_2 = tf.nn.avg_pool(conv_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-            conv_2, pruner = self.blocks.batch_normalization(avg_pool_2, pruner)
+            max_pool_2 = tf.nn.max_pool(conv_2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+            conv_2, pruner = self.blocks.batch_normalization(max_pool_2, pruner)
             conv_2, pruner = self.blocks.relu(conv_2, pruner)
 
         with tf.variable_scope("conv_3"):
@@ -96,8 +96,8 @@ class Cifar10Model:
                                                           output_channels=128,
                                                           strides=1,
                                                           pruner=pruner)
-            avg_pool_4 = tf.nn.avg_pool(conv_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
-            conv_4, pruner = self.blocks.batch_normalization(avg_pool_4, pruner)
+            max_pool_4 = tf.nn.max_pool(conv_4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="SAME")
+            conv_4, pruner = self.blocks.batch_normalization(max_pool_4, pruner)
             conv_4, pruner = self.blocks.relu(conv_4, pruner)
 
         with tf.variable_scope("output"):

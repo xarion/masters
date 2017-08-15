@@ -46,7 +46,7 @@ class Evaluation:
             self.session.run(tf.variables_initializer(tf.local_variables()))
 
             if self.checkpoint:
-                # self.log("loading from checkpoint file: " + self.checkpoint)
+                self.log("loading from checkpoint file: " + self.checkpoint)
                 saver.restore(self.session, self.checkpoint)
             else:
                 raise Exception("Checkpoint file not found. Can not proceed with pruning.")
@@ -107,7 +107,7 @@ class Evaluation:
 
 def main(_):
     checkpoints = [
-        'SEP-RESNET-52-80000'
+        'SEP-RESNET-34-250001'
         # 'SEP-RESNET-52-160000',
         # 'SEP-RESNET-52-200000',
         # 'SEP-RESNET-52-60000',

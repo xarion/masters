@@ -11,7 +11,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 
-flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
+flags.DEFINE_integer('batch_size', 256, 'Size of each training batch')
 
 # Preprocessing Flags (only affect training data, not validation data)
 CHECKPOINT_FOLDER = "checkpoints"
@@ -25,7 +25,8 @@ DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 
 class Train:
     def __init__(self):
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+        gpu_options = tf.GPUOptions()
+        # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
 
         self.graph = tf.Graph()
 
@@ -41,8 +42,8 @@ class Train:
             self.session.run(tf.variables_initializer(tf.local_variables()))
             merged = tf.summary.merge_all()
             train_writer = tf.summary.FileWriter("summaries/train_ours", self.graph)
-            test_writer = tf.summary.FileWriter("summaries/test_ours", self.graph, max_queue=1)
-            saver = tf.train.Saver(max_to_keep=10)
+            test_writer = tf.summary.FileWriter("summaries/test_ours", self.graph)
+            saver = tf.train.Saver(max_to_keep=2, keep_checkpoint_every_n_hours=2)
 
             latest_checkpoint = tf.train.latest_checkpoint(CHECKPOINT_FOLDER)
             self.session.run(tf.variables_initializer(tf.local_variables()))
@@ -69,7 +70,7 @@ class Train:
                         m, top1, = self.session.run([merged, self.model.top_1_accuracy],
                                                     feed_dict={self.model.do_validate: True})
                         test_writer.add_summary(m, step)
-                        test_writer.flush()
+                        # test_writer.flush()
 
                     if step % CHECKPOINT_STEP == 0:
                         saver.save(self.session, CHECKPOINT_FOLDER + '/' + CHECKPOINT_NAME, global_step=step)

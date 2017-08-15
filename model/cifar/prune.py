@@ -7,14 +7,13 @@ import tarfile
 import tensorflow as tf
 from six.moves import urllib
 
-import data as cifar10
 from model.cifar.separable_resnet import SeparableResnet
 from model.graph_meta import GraphMeta
 from model.pruning import OpStats, OpPruning
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('batch_size', 128, 'Size of each training batch')
+flags.DEFINE_integer('batch_size', 500, 'Size of each training batch')
 
 CHECKPOINT_FOLDER = "checkpoints"
 CHECKPOINT_STEP = 50000
@@ -26,19 +25,20 @@ DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz'
 # max_sample_count = cifar10.NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
 
 
-max_sample_count = 300
+max_sample_count = 10000
 
 
 class Prune:
     def __init__(self):
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
 
-        self.latest_checkpoint = "checkpoints/SEP-RESNET-52-80000"
+        self.latest_checkpoint = "checkpoints/SEP-RESNET-34-250000"
         self.graph_meta = GraphMeta(self.latest_checkpoint)
 
         self.graph = tf.Graph()
 
         with self.graph.as_default():
+            self.maybe_download_and_extract()
             self.model = SeparableResnet(graph_meta=self.graph_meta,
                                          training=True,
                                          batch_size=FLAGS.batch_size)
@@ -123,7 +123,7 @@ class Prune:
             filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
 
             statinfo = os.stat(filepath)
-            Prune.log('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+            Prune.log('Successfully downloaded')
         extracted_dir_path = os.path.join(dest_directory, 'cifar-10-batches-bin')
         if not os.path.exists(extracted_dir_path):
             tarfile.open(filepath, 'r:gz').extractall(dest_directory)

@@ -8,36 +8,10 @@
     Do not repeat word for word the abstract, introduction or discussion.
 \fi
 
-
 In this research, we have investigated some methods to reduce the computational cost of convolutional neural networks. To do that, we experimented with some methods that could be used to define models with lower computational cost. We also experimented with some methods to reduce the computational complexity of a given model. 
 
-In our experiments we have observed that the models using separable convolutions result with a slightly better accuracy compared to models using convolution or kernel compositing convolution operations. We also saw that kernel composing convolution operation is a good alternative to convolution operation, only if the kernel size is larger than 3. However, most state of the art convolutional neural networks use convolutions with kernel size 3. Therefore, this method is not really an alternative to convolution operation. 
+To be able to experiment with pruning using larger models, we have implemented a tool to describe pruning routines. We have also implemented a tool that applies simple quantization, pruning and factorization methods to trained models. Using these tools, we have observed that these methods reduce the computational cost of sufficiently large models.
 
-To be able to experiment with pruning using larger models, we have implemented a tool to describe pruning routines. We implemented pruners for various layer types and functions, such as convolutions, separable convolutions, batch normalization, fully connected layers and residual connections. We also implemented a module to collect activation statistics for given $\RELU$ activations. Using this tool other researchers can also experiment with pruning neural networks using Tensorflow. 
+In our experiments we have observed that the models using separable convolutions with non-linearity results with a slightly better accuracy compared to models using convolution or kernel compositing convolution operations. Using them, we have redefined residual blocks and designed a model that achieves similar results to ResNet-20 on CIFAR-10 classification task. Our model is two times wider, however it has less residual blocks, using two times less parameters and requiring 3 times less operations. However, more work needs to be done to achieve similar results using ImageNet dataset.
 
-We have also implemented a tool that applies quantization, pruning and factorization to a given trained model. Just as we have seen with pruning, we were unable to achieve the speed ups and accuracy gains reported previously.
-
-When developing models aimed for mobile environments, we think that training a compact model and applying compression techniques is a better alternative to compressing a large network.
-
-\iffalse
-\section{Approach for Model Selection}
-We have seen two approaches for finding the right balance between computational complexity and model performance (e.g. accuracy).
-
-
-us more control over the computational cost. However, with such an approach, it is hard to determine the trade-off between the model performance and the computational cost. We believe that this approach is more useful for applications that value low computational cost over model performance.
-We have also observed that defining a model target
-
-We think that implementing a compact model and trying to achieve the best result is a better approach than defining a very large network and pruning it to achieve a compact model. 
-\fi
-\iffalse
-We have seen that the model choice is the most important step when designing a model for inference. 
-Starting with a large network and using pruning to make it smaller is not the best way to come up with a model targeted for mobile devices. We think that starting from a small model, testing it's inference speed, trying to find the right model for the task and then training is the best way to go.
-Using pruning and factorization we can redefine large models but they don't work for sufficiently small models.
-
-Separable convolutions are a faster alternative to convolutions
-
-Model size matters but the relationship between model size and inference speed is dependent on other factors. So only reducing the model size would not make any difference.
-\fi
-\iffalse
-In this research we have experimented with some methods that could be used to reduce the computational cost of convolutional neural networks. We have seen that a separable convolution can replace the convolution operation in most cases. With that replacement we can
-\fi
+When developing models aimed for processing power restricted environments, we think that designing and training small models based on the requirements is a more stable alternative to compressing large networks. We have seen that wider and shallower residual networks using separable residual blocks are one way of designing such models.

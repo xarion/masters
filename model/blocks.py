@@ -1,3 +1,4 @@
+import operator
 import tensorflow as tf
 from tensorflow.contrib import layers
 
@@ -5,7 +6,7 @@ from model.pruning.op_pruners import ContribLayersBatchNorm, BiasAdd, Matmul, Co
     FeaturePadding
 from model.pruning.relays import ResidualBranch, EmptyForwardRelay, EmptyBackwardRelay, \
     ResidualJoin
-from model.pruning.stats import ActivationCorrelationStats
+from model.pruning.stats import ActivationValueStats
 
 
 class Blocks:
@@ -13,7 +14,8 @@ class Blocks:
         self.graph_meta = graph_meta
         self.training = training
         self.decayed_variables = []
-
+        self.total_parameters = 0l
+    
     def get_variable_with_shape_by_graph_meta_getter(self, getter, name, shape, *args, **kwargs):
         if self.graph_meta is not None:
             shape_from_meta = self.graph_meta.get_variable_shape(name)
@@ -21,6 +23,7 @@ class Blocks:
                 shape = shape_from_meta
             else:
                 self.graph_meta.set_variable_shape(name, shape)
+        self.total_parameters += reduce(operator.mul, shape, 1)
         return getter(name, shape, *args, **kwargs)
 
     def weight_variable(self, name, shape):
@@ -37,7 +40,7 @@ class Blocks:
 
     def relu(self, input_layer, pruner):
         relu = tf.nn.relu(input_layer)
-        stat = ActivationCorrelationStats(relu)
+        stat = ActivationValueStats(relu)
         stat.set_previous_op(pruner)
         return relu, stat
 
@@ -47,8 +50,8 @@ class Blocks:
         conv_pruner = Conv2D(weights)
         conv_pruner.set_previous_op(pruner)
         logits = tf.nn.conv2d(input_layer, weights, strides=[1, strides, strides, 1], padding="SAME")
-        logits, pruner = self.add_bias(logits, output_channels, pruner)
-        return logits, conv_pruner
+        logits, pruner = self.add_bias(logits, output_channels, conv_pruner)
+        return logits, pruner
 
     def composed_conv2d(self, input_layer, filter_size, input_channels, output_channels, intermediate_channels,
                         strides, pruner):
@@ -67,7 +70,7 @@ class Blocks:
         return logits, conv_pruner
 
     def separable_conv2d(self, input_layer, filter_size, input_channels, depthwise_multiplier, output_channels,
-                         strides, pruner, depthwise_relu_bn=False):
+                         strides, pruner, depthwise_relu_bn=True):
         intermediate_channels = input_channels * depthwise_multiplier
 
         with tf.variable_scope('depthwise'):
@@ -79,11 +82,11 @@ class Blocks:
                                                               strides=[1, strides, strides, 1],
                                                               padding="SAME",
                                                               name="depthwise")
-            # depthwise_results, pruner = self.add_bias(depthwise_results, intermediate_channels, pruner)
+            depthwise_results, depthwise_bias_pruner = self.add_bias(depthwise_results, intermediate_channels, EmptyForwardRelay())
 
             if depthwise_relu_bn:
-                depthwise_results, pruner = self.batch_normalization(depthwise_results, pruner)
-                depthwise_results, pruner = self.relu(depthwise_results, pruner)
+                depthwise_results, depthwise_batch_normalization_pruner = self.batch_normalization(depthwise_results, EmptyForwardRelay())
+                depthwise_results, _ignored = self.relu(depthwise_results, EmptyForwardRelay())
 
         with tf.variable_scope('pointwise'):
             pointwise_weights = self.weight_variable("pointwise_weights",
@@ -93,11 +96,16 @@ class Blocks:
                                              pointwise_weights,
                                              [1, 1, 1, 1],
                                              padding="VALID")
-            pointwise_results, pruner = self.add_bias(pointwise_results, output_channels, pruner)
+            separable_pruner = SeparableConv2D(depthwise_weights, pointwise_weights)
+            separable_pruner.set_previous_op(pruner)
+            pointwise_results, pruner = self.add_bias(pointwise_results, output_channels, separable_pruner)
 
-        separable_pruner = SeparableConv2D(depthwise_weights, pointwise_weights)
-        separable_pruner.set_previous_op(pruner)
-        return pointwise_results, separable_pruner
+        separable_pruner.extend(depthwise_bias_pruner)
+        
+        if depthwise_relu_bn:
+            separable_pruner.extend(depthwise_batch_normalization_pruner)
+
+        return pointwise_results, pruner
 
     def residual_separable(self, input_layer, input_channels, output_channels,
                            strides, activate_before_residual, pruner):
@@ -230,37 +238,6 @@ class Blocks:
         deconv_pruner.set_previous_op(pruner)
 
         return deconv, deconv_pruner
-
-    def separable_conv2d_with_max_pool(self, input_layer, filter_size, input_channels, depthwise_multiplier,
-                                       output_channels, strides, pruner):
-        intermediate_channels = input_channels * depthwise_multiplier
-        with tf.variable_scope('depthwise'):
-            depthwise_weights = self.weight_variable("depthwise_weights",
-                                                     [filter_size, filter_size, input_channels, depthwise_multiplier])
-
-            pointwise_weights = self.weight_variable("pointwise_weights", [1, 1, intermediate_channels, output_channels])
-            self.decayed_variables.append(depthwise_weights)
-            self.decayed_variables.append(pointwise_weights)
-            depthwise_results = tf.nn.depthwise_conv2d_native(input=input_layer,
-                                                              filter=depthwise_weights,
-                                                              strides=[1, strides, strides, 1],
-                                                              padding="SAME",
-                                                              name="depthwise")
-            # depthwise_results, pruner = self.add_bias(depthwise_results, intermediate_channels, pruner)
-            depthwise_results_max = tf.nn.max_pool(depthwise_results, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                                   padding="SAME")
-            depthwise_results_avg = tf.nn.avg_pool(depthwise_results, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                                                   padding="SAME")
-            depthwise_results = depthwise_results_avg + depthwise_results_max
-        with tf.variable_scope('pointwise'):
-            pointwise_results = tf.nn.conv2d(depthwise_results,
-                                             pointwise_weights,
-                                             [1, 1, 1, 1],
-                                             padding="VALID")
-            pointwise_results, pruner = self.add_bias(pointwise_results, output_channels, pruner)
-        separable_pruner = SeparableConv2D(depthwise_weights, pointwise_weights)
-        separable_pruner.set_previous_op(pruner)
-        return pointwise_results, separable_pruner
 
     def get_decayed_variables(self):
         return self.decayed_variables

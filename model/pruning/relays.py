@@ -73,7 +73,9 @@ class ResidualBranch(Relay):
             self.joined = True
             self.other_keep_indices = keep_indices
         else:
-            union_op = sorted_union(self.previous_keep_indices, sorted_union(self.other_keep_indices, keep_indices))
+            union_op = sorted_union(self.other_keep_indices, keep_indices)
+            if self.previous_keep_indices is not None:
+                sorted_union(self.previous_keep_indices, union_op)
             assign_keep_indices = assign(keep_indices, union_op)
             assign_other_keep_indices = assign(self.other_keep_indices, union_op)
             tf.add_to_collection(OpStats.STAT_OP_COLLECTION, assign_keep_indices)

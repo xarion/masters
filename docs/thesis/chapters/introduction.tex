@@ -2,28 +2,27 @@
 
 The state of the art in image processing has changed when graphics processing units (GPU) were used to train neural networks. GPUs contain many cores, they have very large data bandwidth and they are optimized for efficient matrix operations. In 2012, \cite{krizhevsky2012imagenet} used two GPUs to train an 8 layer convolutional neural network (CNN). With this model, they won the ImageNet Large Scale Visual Recognition Competition (ILSVRC) classification task (\cite{deng2012image}). Their model has improved the previous (top-5) classification accuracy record from $\sim 74\%$ to $\sim 84\%$. This caused a big trend shift in computer vision. 
 
-As the years' pass, GPUs got more and more powerful. In 2012, \cite{krizhevsky2012imagenet} used GPUs that had 3 GB memory each. Today there are GPUs with up to 16 GB memory. The number of floating point operations per second (FLOPs) has also increased from $2.5$ tera FLOPs (TFLOPs) to $12$ TFLOPs. This gradual but steep change has allowed the use of more layers and more parameters. For example, \cite{Simonyan:2014aa} introduced a model called VGGNet. Their model used up to 19 layers and shown that adding more layers increases the accuracy. \cite{He:2015aa} introduced a new method called residual connections, that allowed the use of up to 200 layers. Building up on such models, in 2016 ILSVRC winning (top-5) classification accuracy has increased to $\sim 97\%$. 
+As the years' pass, GPUs got more and more powerful. In 2012, \cite{krizhevsky2012imagenet} used GPUs that had 3 GB memory each. Today there are GPUs with up to 16 GB memory. The number of floating point operations per second (FLOPs) has also increased from $2.5$ tera FLOPs (TFLOPs) to $12$ TFLOPs. This gradual but steep change has allowed the use of more layers and more parameters. For example, \cite{Simonyan:2014aa} introduced a model called VGGNet. Their model used up to 19 layers and shown that deeper models achieve better accuracy. \cite{He:2015aa} introduced a new method called residual connections, that allowed the use of up to 200 layers. Building up on such models, in 2016 ILSVRC winning (top-5) classification accuracy has increased to $\sim 97\%$. 
 
-In contrast, \cite{Szegedy:2014aa} have shown that incorporating layers to compose blocks (i.e. inception blocks) works better than stacking layers. Their proposal has also been supported by \cite{Canziani:2016aa}. \cite{Canziani:2016aa} has shown the relation between number of parameters of a model and its top-1 classification accuracy in ILSVRC dataset. According to their report, 48 layer Inception-v3 (\cite{Szegedy_2016_CVPR}) provides better top-1 classification accuracy than 152 layer ResNet (\cite{He:2015aa}). They also show that Inception-v3 requires fewer number of floating point operations to compute results. Their results reveal that, providing more layers and parameters does not necessarily yield better results. 
+In contrast, \cite{Szegedy:2014aa} have shown that incorporating layers to compose blocks (i.e. inception blocks) works better than stacking layers. Their proposal has also been supported by \cite{Canziani:2016aa}. \cite{Canziani:2016aa} has shown the relationship between the number of parameters and the top-1 classification accuracy of state of the art models trained on ILSVRC dataset. They compare Inception-v3 (\cite{Szegedy_2016_CVPR}) and ResNet-152 (\cite{He:2015aa}) in terms of accuracy and number of parameters, and show that Inception-v3, while having less layers, less parameters and requiring less number of floating point operations, performs better than ResNet-152. Their results reveal that, providing more layers and parameters does not necessarily yield better results. 
 
-ILSVRC is one of the most famous competitions in image processing. Every year, the winners of this competition are driving the research on the field. However, this competition is not considering the computational cost of solutions. The computational cost is an important factor to express the cost of real life applications of a model. For example, the 2016 winner of ILSVRC, used an ensemble of large models\footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. Such an ensemble is very expensive to use in real life because of its high computational cost. But because the cost is hidden, these results are creating an unreal expectation in public. It seems as if these methods are applicable without a cost. In this thesis, we want to come up with a state of the art solution that could easily be applicable in real life. To define \textit{applicable in real life}, we benchmark our solution on mobile devices. These devices are affordable and they have great availability, we believe that it is a proper platform for bridging the gap between expectations of the public and reality. In this thesis, we will answer,
+ILSVRC is one of the most famous competitions in image processing. Every year, the winners of this competition are driving the research in the field. However, this competition is not considering the computational cost of solutions. The computational cost is an important factor to express the cost of real life applications of a model. For example, the 2016 winner of ILSVRC, used an ensemble of large models\footnote{\url{http://image-net.org/challenges/LSVRC/2016/results\#team}}. Such an ensemble is very expensive to use in real life because of its high computational cost. But because the cost is hidden, these results are creating an unreal expectation in public. It looks like these methods are applicable without a cost. In this thesis, we try to come up with some methods that can be used to create state of the art solutions that could easily be applicable in real life. % To define \textit{applicable in real life}, we benchmark our solution on mobile devices. These devices are affordable and they have great availability, we believe that it is a proper platform for bridging the gap between expectations of the public and reality. In this thesis, we will answer,
 
 \begin{quote}
 How can we reduce the computational cost of inference in convolutional neural networks?
 \end{quote}
 
-First, we will briefly describe neural networks and some underlying concepts. We will mention the computational cost of necessary operations. Then, we will provide known solutions to reduce these complexities. In chapter two we will explain the experiments we ran and describe a convolutional neural network designed to work on mobile devices. In chapter three, we will present the results of our experiments. 
+First, we will briefly describe neural networks and some underlying concepts. We will mention the computational cost of necessary operations. In chapter two we will explain some methods to reduce the computational cost and run experiments on these methods. We also design and train some convolutional neural networks designed to have less computational cost. In chapter three, we will present the results of our experiments. In chapter four, we will retrospect to our decisions, experiment design, results. In chapter five, we will conclude our research and answer the research question.
 
 
 \section{Notations}
-We will be dealing tensors of various shapes. Therefore we will be defining a notation that will help us through the process. We will define sets of semantically similar tensors using capital Latin letters. For example, we will use $\all\weights$ to describe the indexed set or an array of weights in a network. To represent an element of this set we will use superscript variables, such as $\wk{k}$. Since these sets represent a semantic group of variables that may have different properties, such as shape, or dimensions, or type, it would be misleading to represent them using a tensor or a matrix. Having such a definition, we will not be separating scalars, vectors, matrices or tensors using capitals or bolds. However, we will be defining these variables whenever necessary. We will use the $\wk{k} \inreal{5 \times 5}$ notation to describe a matrix with 5 rows and 5 columns with real numbers as values. To describe the coordinates of a variable, we will use subscript variables. We use $\wki{k}{i,j}$ to represent the $i$th column and $j$th row of this matrix. We use commas or parentheses to group these variables or dimensions semantically. If we need to operate (such as addition or multiplication) on the subscript variables, we will explicitly use $*$ as $\wki{k}{i*2, j*2}$ to represent multiplications so that we will not cause any confusion. 
-
+We will be dealing tensors of various shapes. Therefore we will be defining a notation that will help us through the process. To represent an element of this set we will use superscript variables, such as $\wk{k}$. Since these sets represent a semantic group of variables that may have different properties, such as shape, or dimensions, or type, it would be misleading to represent them using a global tensor. We will not be separating scalars, vectors, matrices or tensors using capitals or bolds. However, we will be reminding the definition these variables whenever we find necessary. We will use the $\wk{k} \inreal{5 \times 5}$ notation to describe a matrix with 5 rows and 5 columns with real numbers as values. To describe the coordinates of a variable, we will use subscript variables. We use $\wki{k}{i,j}$ to represent the $i$th column and $j$th row of this matrix. We use commas or parentheses to group these variables or dimensions semantically. 
 \section{Neural Networks}
 In this section, we will describe neural networks briefly, provide some terminology and give some examples. 
 
 Neural networks are \textit{weighted graphs}. They consist of an ordered set of \textit{layers}, where every layer is a set of \textit{nodes}. The first layer of the neural network is called the \textit{input layer}, and the last one is called the \textit{output layer}. The layers in between are called \textit{hidden layers}. Layers are a semantic group of nodes. Nodes belonging to one layer are connected to the nodes in the following and/or the previous layers. These connections are weighted edges, and they are referred to as \textit{weights}. 
 
-Given an input, neural network nodes have \textit{outputs}, which are real numbers. The output of a node is calculated by applying a function ($\lf$) to the outputs of the nodes belonging to previous layers. Preceding that, the output of the input layer ($\ok{0}$) is equal to the input data (see Eq. \ref{eq:output_of_layers}).  By calculating the layer outputs consecutively we calculate the output of the output layer. This process is called \textit{inference}. We use the following notations to denote the concepts that we just explained.
+Given an input, neural network nodes have \textit{outputs}, which are real numbers. The output of a node is calculated by applying a function ($\lf$) to the outputs of the nodes belonging to previous layers. Preceding that, the output of the input layer ($\ok{0}$) is equal to the input (see Eq. \ref{eq:output_of_layers}).  By calculating the layer outputs consecutively we calculate the output of the output layer. This process is called \textit{inference}. We use the following notations to denote the concepts that we just explained.
 \begin{equation*}
 \begin{split}
 \num\layer & \text{: the number of layers in a neural network}\\
@@ -60,15 +59,25 @@ Therefore, the structure of a neural network is determined by the number of laye
 \subsection{Fully Connected Layers}
 As the name suggests, for two consecutive layers to be \textit{fully connected}, all nodes in the previous layer must be connected to all nodes in the following layer. 
 
-Let us assume two consecutive layers, $\lk{k-1} \inreal{\mk{k-1} \times 1}$ and $\lk{k} \inreal{\mk{k} \times 1}$. For these layers to be fully connected, the weight matrix connecting them would be defined as $\wk{k} \inreal{\mk{k-1} \times \mk{k}}$. Most fully connected layers also include a bias term ($\bk{k} \in  \real{\mk{k}}$). The output of a fully connected layer, $\ok{k}$, would simply be calculated using layer function $\FC$ as
+Let us assume two consecutive layers, $\lk{k-1} \inreal{\mk{k-1} \times 1}$ and $\lk{k} \inreal{\mk{k} \times 1}$. For these layers to be fully connected, the weight matrix connecting them would be defined as $\wk{k} \inreal{\mk{k-1} \times \mk{k}}$. This structure is represented in Figure  \ref{fig:fully_connected}.
+
+ Most fully connected layers also include a bias term ($\bk{k} \in  \real{\mk{k}}$). The output of a fully connected layer, $\ok{k}$, would simply be calculated using layer function $\FC$ as
 $$ \ok{k} = \FCk{k}(\ok{k-1}) = (\ok{k-1})^T \wk{k} + \bk{k}$$
 The computational complexity of $\FCk{k}$ is
 $$\bigo{\FCk{k}} = \bigo{\mk{k-1}\mk{k}}$$
 
-\subsection{Activation Function and Nonlinearity}
-By stacking fully connected layers, we can increase the depth of a neural network. By doing so we may be able to increase approximation quality of the neural network. However, the $\FC$ we have defined is a linear function. Therefore if we stack multiple fully connected layers using the current $\FC$, we would end up with a linear model. 
+\begin{figure}[!h]
+  \begin{centering}
+    \includegraphics[width=.3\textwidth]{images/fully_connected.pdf}
+    \caption{Graph representation of two fully connected layers, $\lk{k-1}$ and $\lk{k}$, connected by the weight matrix $\wk{k}$.}
+    \label{fig:fully_connected}
+  \end{centering}
+\end{figure}
 
-To achieve non-linearity, we apply \textit{activation functions} to the results of $\lf$. There are many activation functions (such as $tanh$ or $sigmoid$) but one very commonly used activation function is $\RELU$ \cite{nair2010rectified}.  $\RELU$ is defined as
+\subsection{Activation Function and Nonlinearity}
+By stacking fully connected layers, we can increase the depth of a neural network. By doing so we may be able to increase approximation quality of the neural network. However, the $\FC$ we have defined is a linear function. Therefore, no matter how many linear fully connected layers we stack, we would end up with a linear model.
+
+To achieve non-linearity, we apply \textit{activation functions} to the results of $\lf$. There are many activation functions (such as $tanh$ or $sigmoid$) but one very commonly used activation function is $\RELU$ \cite{nair2010rectified}. As shown in Figure~\ref{fig:relu}, $\RELU$ is defined as
 \begin{equation}
 \label{eq:relu_definition}
     \RELU(x) = 
@@ -77,7 +86,16 @@ To achieve non-linearity, we apply \textit{activation functions} to the results 
     0 &  \text{otherwise }\\
 \end{cases}
 \end{equation}
-As \cite{glorot2011deep} explained, $\RELU$ leads to sparsity. As a result, given an input, only a subset of nodes are non-zero (active) and every possible subset results with a linear function. This linearity allows a better flow of gradients, leading to faster training. Also, the $\RELU$ is not relying on any computation, so it is easier to compute compared to hyperbolic or exponential alternatives.
+\begin{figure}[!h]
+  \begin{centering}
+    \includegraphics[width=.7\textwidth]{images/relu.pdf}
+    \caption{$\RELU$ non linearity visualized.}
+    \label{fig:relu}
+  \end{centering}
+\end{figure}
+
+
+As \cite{glorot2011deep} explained, $\RELU$ leads to sparsity. As a result, given an input, only a subset of nodes are non-zero (active) and every possible subset results with a linear function. This linearity allows a better flow of gradients, leading to faster training. Also, the $\RELU$ is easier to compute compared to hyperbolic or exponential alternatives.
 
 We will redefine the fully connected $\FC$ with activation function ($\sigma$) as
 $$ \FCk{k}(\ok{k}) = \sigma((\ok{k})^T\wk{k} + \bk{k})$$
@@ -90,7 +108,7 @@ $$ \all\outputvar = \{\lfk{k}(\ok{k-1}) \ | \  k \in [1, \ldots, \num\layer] \} 
 % $$\nnfunc : \x \rightarrow \yh$$
 \subsection{Loss}
 
-To represent the quality of an approximation, we are going to use a loss (or cost) function. A good example to understanding loss would be the loss of a salesman. Assuming a customer who would pay at most \$10 for a given product, if the salesman sells this product for \$4, the salesman would face a loss of \$6 from his potential profit. Or if the salesman tries to sell this product for \$14, the customer will not purchase it and he will face a loss of \$10. In this example, the salesman would want to minimize the loss to earn as much as possible. There are two common properties of loss functions. First, the loss is never negative. Second, if we compare two approximations, the one with smaller loss is better at approximating the data.
+To represent the quality of an approximation, we are going to use a loss (or cost) function. A good example to understanding loss would be the loss of a salesman. Assuming a customer who would pay at most \$10 for a given product, if the salesman sells this product for \$4, the salesman would face a loss of \$6 from his potential profit. Or if the salesman tries to sell this product for \$14, the customer will not purchase it and he will face a loss of \$10. In this example, the salesman would want to minimize the loss to earn as much as possible. There are two common properties of loss functions. First, loss is never negative. Second, if we compare two approximations, the one with smaller loss is better at approximating the data.
 
 \subsubsection{Root Mean Square Error}
 A commonly used loss function is root mean square error ($\RMSE$). Given an approximation ($\yhn{n} \inreal{N}$) and the expected output ($\yn{n} \inreal{N}$), $\RMSE$ can be calculated as
@@ -105,7 +123,7 @@ $$p(i | \yhn{n}) = \frac{e^{\yhni{n}{i}}}{\sum_{j=1}^{N}e^{\yhni{n}{j}}}$$
 Then comparing it with the the expected output ($\yn{n} \inreal{N}$), $\SCE$ loss can be calculated as
 $$\loss = \CE(\yhn{n}, \yn{n}) = - \sum_{i=1}^{N} \yni{n}{i} log(p(i | \yhn{n}))$$
 
-$\SCE$ depends on the softmax to turn the node outputs into probabilities. Therefore, it makes sense to use it for classification tasks where the output data is representing a probability distribution. However, $\RMSE$ punishes the exact difference in outputs. Therefore, we can say that it is better for tasks like regression which represent exact values in output nodes. \cite{golik2013cross} provides a comprehensive comparison of both methods. 
+$\SCE$ depends on the softmax to turn the node outputs into probabilities. Therefore, it makes sense to use it for classification tasks where the output data is representing a probability distribution. However, $\RMSE$ punishes the difference in outputs. Therefore, we can say that it is better for tasks like regression which represent exact values in output nodes. \cite{golik2013cross} provides a comprehensive comparison of both methods. 
 
 \subsection{Minimizing Loss}
 To provide better approximations, we will try to optimize the neural network parameters. One common way to optimize these parameters is to use stochastic gradient descent (SGD). SGD is an iterative learning method that starts with some initial (random) parameters. Given $\theta \in (\all\weights \cup \all\biasterm$) to be a parameter that we want to optimize. The learning rule updating $\theta$ for a simple example would be
@@ -113,12 +131,12 @@ To provide better approximations, we will try to optimize the neural network par
 $$ \theta = \theta- \eta \nabla_\theta{\loss(f(\x),\y)} $$
 where $\eta$ is the learning rate, and $\nabla_\theta{\mathcal{L}(f(x), y)}$ is the partial derivative of the loss in terms of given parameter, $\theta$. One iteration is completed when we update every parameter for given example(s). By performing many iterations, SGD aims to find a global minimum for the loss function, given data and initial parameters.
 
-There are several other optimizers that work in different ways. We will be using Adam Optimizer (\cite{kingma2014adam}), Momentum Optimizer (\cite{qian1999momentum}) and SGD.
+There are several other optimizers that work in different ways. We will be using Momentum Optimizer (\cite{qian1999momentum}) and SGD.
 
 \subsection{Convolutional Layer}
 So far we have seen the key elements we can use to create and train fully connected neural networks. To be able to apply neural networks to image inputs, we can define convolutional layers using convolution operation. Please note that, in this section, we are assuming one or two dimensional convolutions with same padding. 
 
-Let us assume a 3 dimensional layer output $\ok{k-1} \inreal{\heightk{k-1} \times \widthk{k-1} \times \mk{k-1}}$ where the dimensions $\heightk{k-1}$ representing the length of the height dimension, $\widthk{k-1}$ representing the length of the width dimension and $\mk{k-1}$ representing number of nodes in that layer. Convolution operation first creates a sliding window of size $\kernelsize \times \kernelsize \times \mk{k-1}$ that goes through height and width dimensions. The contents of this sliding window would be patches ($\pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$) where $0 < I \leq \widthk{k}$ and $0 < J \leq \widthk{k}$. By multiplying the weight matrix $\wk{k} \inreal{\kernelsize \times \kernelsize \times \mk{k-1} \times \mk{k}}$ to the patch $\pki{k-1}{(I,J)}$  centered at $(I,J)$, we create the set of output nodes for that point $\oki{k}{(I,J)} \inreal{1 \times \mk{k}}$. While calculating the patches, we also make use of a parameter called stride, $\sk{k} \in \mathbb{N}^+$. $\sk{k}$ defines the number of vertical and horizontal steps to take between each patch.
+Let us assume a 3 dimensional layer output $\ok{k-1} \inreal{\heightk{k-1} \times \widthk{k-1} \times \mk{k-1}}$ where the dimensions $\heightk{k-1}$ representing the length of the height dimension, $\widthk{k-1}$ representing the length of the width dimension and $\mk{k-1}$ representing number of nodes in that layer. We will refer to the totality of these nodes repeated in width and height dimensions as features or channels. Convolution operation first creates a sliding window of size $\kernelsize \times \kernelsize \times \mk{k-1}$ that goes through height and width dimensions. The contents of this sliding window are patches ($\pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$) where $0 < I \leq \widthk{k}$ and $0 < J \leq \widthk{k}$. By multiplying the weight matrix $\wk{k} \inreal{\kernelsize \times \kernelsize \times \mk{k-1} \times \mk{k}}$ to the patch $\pki{k-1}{(I,J)}$  centered at $(I,J)$, we create the set of output nodes for that point $\oki{k}{(I,J)} \inreal{1 \times \mk{k}}$. While calculating the patches, we also make use of a parameter called stride, $\sk{k} \in \mathbb{N}^+$. $\sk{k}$ defines the number of vertical and horizontal steps to take between each patch.
 
 In other words, strides ($\sk{k}$) are used to define the width ($\widthk{k}$) and height ($\heightk{k}$) of the output in layer $k$ as
 $$ \widthk{k} = \floor*{\frac{\widthk{k-1}}{\sk{k}}}, \heightk{k} = \floor*{\frac{\heightk{k-1}}{\sk{k}}}$$
@@ -141,12 +159,20 @@ $$\convk{k}(\ok{k-1}) = \ok{k} = \{\oki{k}{(I,J)} \ | \ \forall (I,J) (\exists \
 where the weight and the bias are defined as
 $$ \wk{k} \inreal{\kernelsize \times \kernelsize \times \mk{k-1} \times \mk{k}} $$
 $$ \bk{k} \inreal{\mk{k}}$$
-In other words, the output of layer is a set of vectors ($\ok{k} = \{\oki{k}{(I,J)}\}$). For every pair of indices ($I,J$), there exists a patch $\pki{k-1}{(I,J)}$ defined by the outputs of the previous layer. We apply the weight, the bias and the activation function to these patches to calculate the set $\ok{k}$. Given this description, we can define the complexity of this operation as
+\begin{figure}[!h]
+  \begin{centering}
+    \includegraphics[width=1\textwidth]{images/convolution.pdf}
+    \caption{Convolution operation visualized. }
+    \label{fig:convolution}
+  \end{centering}
+\end{figure}
+In other words, as shown in Figure~\ref{fig:convolution}, the output of layer is a set of vectors ($\ok{k} = \{\oki{k}{(I,J)}\}$). For every pair of indices ($I,J$), there exists a patch $\pki{k-1}{(I,J)}$ defined by the outputs of the previous layer. We apply the weight, the bias and the activation function to these patches to calculate the set $\ok{k}$. Given this description, we can define the complexity of this operation as
 $$ \bigo{\convk{k}} = \bigo{\widthk{k}\heightk{k}\kernelsize^2\mk{k-1}\mk{k}} $$
 
 
+
 \subsection{Pooling}
-Pooling is a way of reducing the dimensionality of a layer. Depending on the task, one may choose from different pooling methods. Similar to convolution operation, pooling methods also work with patches $\pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$ and strides $\sk{k-1}$. But this time, instead of applying a weight, bias and activation function, they apply simpler functions. Here we will see two types of pooling layers.
+Just like strides, pooling is another way of reducing the dimensionality ($\width{k}$ and $\height{k}$) of a layer. Depending on the task, one may choose from different pooling methods. Similar to convolution operation, pooling methods also work with patches $\pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$ and strides $\sk{k-1}$. But this time, instead of applying a weight, bias and activation function, they apply simpler functions. Here we will see two types of pooling layers.
 
 \subsubsection{Max Pooling}
 Max pooling takes the maximum value in a channel within the patch. Let's define the first subindex of a patch as if it is referring to a node as
@@ -169,146 +195,6 @@ Global pooling methods take the output layer as one patch and reduce height and 
 \subsection{Deconvolution}
 Introduced by \cite{zeiler2010deconvolutional}, deconvolution operation aims to increase the dimensionality of an input. To do that, it basically transposes the convolution operation. Deconvolution operation creates patches of $\pki{k-1}{(I,J)} \inreal{1 \times 1 \times \mk{k-1}}$ from the input, and applies a weight matrix of $\wk{k} \inreal{\mk{k-1} \times \kernelsize \times \kernelsize \times \mk{k}}$. In other words, it creates a $\kernelsize \times \kernelsize \times \mk{k}$ output from every $1 \times 1 \times \mk{k-1}$ patch and expands the height and width of the input. 
 
-So far we have seen some building blocks of convolutional neural networks. Now we move on to subjects that are related to reducing the complexity or increasing efficiency. 
-
-\section{Efficient Operations}
-In this section, we are going to look at some ways to reduce the computational complexities of fully connected layers and convolutional layers. 
-
-\subsection{Factorization}
-Factorization is approximating a weight matrix using smaller matrices. As explained by \cite{zhang2016accelerating}, \cite{denton2014exploiting}, \cite{chung2016simplifying}, factorization has interesting uses with neural networks. Let us assume that we have a fully connected layer $k$. Using factorization, we can approximate $\wk{k} \inreal{\mk{k-1} \times \mk{k}}$ using two smaller matrices, $U_{\wk{k}} \inreal{\mk{k-1} \times n}$ and $V_{\wk{k}} \inreal{n \times \mk{k}}$. If we can find matrices such that $U_{\wk{k}}V_{\wk{k}} \approx \wk{k}$, we can rewrite $\FCk{k}$ as
-$$\FCk{k}(o) \approx \FCkp{k}(o) = \sigma(o^T U_{\wk{k}}V_{\wk{k}} +\bk{k})$$
-Therefore, we can reduce the complexity of layer $k$ by setting a sufficiently small $n$. As we have mentioned before, $\mathcal{O}(\FCk{k}) = \mathcal{O}(\mk{k-1}\mk{k})$. When we approximate this operation, the complexity becomes
-$$\mathcal{O}(\FCkp{k}) = \mathcal{O}(n(\mk{k-1}+\mk{k}))$$
-
-One thing that is similar between a convolutional layer and a fully connected layer is that both are performing matrix multiplications to calculate results. The only difference is, a convolutional layer is performing this matrix multiplication for every width and height dimension of the output layer. Therefore the same technique can be used with convolutional layers. If we apply factorization, the complexity of a convolutional layer would become
-$$ \bigo{\convkp{k}} =  \bigo{\widthk{k}\heightk{k}\kernelsize^2n(\mk{k-1}+\mk{k})} $$
-
-When factorizing fully connected and convolutional layers, if there is a good enough approximation satisfying the following equation, we can reduce the complexity without affecting the results.
-
-\begin{equation}
-\label{eq:small_n}
-n < \frac{\mk{k-1}\mk{k}}{\mk{k-1}+\mk{k}}
-\end{equation}
-
-The quality of the approximation will influence how this operation affects the accuracy.
-
-\subsubsection{SVD}
-Singular Value Decomposition (SVD) (\cite{golub1970singular}), is a factorization method that we can use to calculate the elements this approximation. SVD decomposes the weight matrix $\wk{k} \inreal{\mk{k-1} \times \mk{k}}$ into $3$ parts as
-$$ \wk{k} = USV^T $$
-Where, $U \inreal{\mk{k-1} \times \mk{k-1}}$ and $V \inreal{\mk{k} \times \mk{k}}$. And $S \inreal{\mk{k-1} \times \mk{k}}$ is a rectangular diagonal matrix. The diagonal values of $S$ are called as the singular values of $\wk{k}$. Selecting the $n$ highest values from $S$ and corresponding columns and rows from $U$ and $V$, respectively, lets us create a \textit{low-rank decomposition} of $\wk{k}$ as
-$$ \wk{k} \approx U'S'V'^T $$
-where $U' \inreal{\mk{k-1} \times n}$, $V' \inreal{n \times n}$, and $S' \inreal{n \times \mk{k}}$. By choosing a sufficiently small rank ($n$) satisfying Equation \ref{eq:small_n} and setting $U_{\wk{k}}=U'S'$ and $V_{\wk{k}} = V'^T$, we can approximate the weights, and reduce the complexity of a layer. \cite{zhang2016accelerating} applies this method to reduce the execution time of a network by 4 times and increase accuracy by 0.5\%.
-
-
-\section{Convolution Operation Alternatives}
-As we have described above, the computational complexity of convolution operation is quite high. Here we will look at some alternative methods to define models with lower complexity.
-\subsection{Kernel Composing Convolutions}
-As  \cite{alvarez2016decomposeme} explains, a convolution operation with a weight matrix $\wk{k} \inreal{\kernelsize \times \kernelsize \times \mk{k-1} \times \mk{k}}$, could be composed using two convolution operations with kernels $\wk{k,1} \inreal{1 \times \kernelsize \times \mk{k-1} \times n}$ and $\wk{k,2} \inreal{\kernelsize \times 1 \times n \times \mk{k}}$ as
-$$ \wk{k} \approx \wk{k,1} \wk{k,2} $$
-Their technique, instead of factorizing learned weight matrices, aims to define kernels as if they were factorized and learn these values. They also aim to increase non-linearity by adding bias and activation function in between. Therefore this operation can be defined as
-
-$$ \lfpkt{k}{KCConv}(o) = \convk{k,2}(\convk{k,1}(o))$$
-
-As \cite{alvarez2016decomposeme} explained, their method forces the separability of the weight matrix as a hard constraint. By performing such an operation, they convert the computational complexity of a convolution operation to $\mathcal{O}(\kernelsize n(\mk{k-1} +\mk{k}))$. Suggesting that, similar to factorization methods, choosing a low-rank satisfying Equation \ref{eq:small_n}, we can define a convolution operation with less computational complexity.
-
-
-\subsection{Separable Convolutions}
-Suggested by \cite{sifre2014rigid}, separable convolutions separate the standard convolution operation into two parts. These parts are called depthwise convolutions and pointwise convolutions. Separable convolutions are used by \cite{chollet2016xception}, \cite{howard2017mobilenets} and \cite{howard2017mobilenets} to reduce complexity of neural networks.
-\subsubsection{Depthwise Convolution}
-Depthwise convolutions apply a separate convolution operation (referred to as inner convolution) on every input channel. Therefore, number of output channels of a depthwise convolution is the number of input channels times the number of output channels of these inner convolutions. In other words, it results with a number of output channels that is equal to (or folds of) the number of input channels. Unless defined otherwise, we use inner convolution operations with one output channel. Therefore the number of input channels are equal to the number of output channels for our depthwise convolutions.
-
-Given a patch $ \pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$, depthwise convolution has a single weight matrix $\wk{k, dw} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$. Let us assume that the subscripts of patch $\pki{k-1}{(I,J)}$ and weight matrix $\wk{k, dw}$ are described as $\pki{k-1}{(I,J),i} \inreal{\kernelsize \times \kernelsize \times 1}$ and $\wki{k, dw}{i} \inreal{\kernelsize \times \kernelsize \times 1}$.
-
-The depthwise convolution operation is defined as
-$$ \lfkt{k}{dw} : \real{\heightk{k-1} \times \widthk{k-1} \times \mk{k-1}} \rightarrow \real{\heightk{k} \times \widthk{k} \times \mk{k-1}} $$ 
-$$\lfkt{k}{dw}(\ok{k-1}) = \ok{k, dw} $$
-where the output $\ok{k, dw}$ is given as
-$$ \ok{k, dw} = \{ \oki{k, dw}{I,J,i} \ | \ \forall (I,J,i) (\exists \pki{k}{(I,J),i}) [\oki{k, dw}{I,J,i} = (\wki{k, dw}{i})^T \pki{k-1}{(I,J),i}  ] \} $$  % \p'_i\w'^{(k, dw)}_i \ 
-In other words, depthwise convolution applies a $1 \times \kernelsize \times \kernelsize$ kernel to every $\kernelsize \times \kernelsize \times 1$ output channel to calculate every output channel of $\oki{k,dw}{I,J}$. The complexity of this operation is
-$$ \mathcal{O} (\psi_k^{(dw)}) = \mathcal{O} (H_kW_kK^2\mk{k-1}) $$
-
-\subsubsection{Pointwise Convolution}
-Pointwise convolution ($\lfkt{k}{pw} : \real{\heightk{k} \times \widthk{k} \times \mk{k-1}} \rightarrow \real{\heightk{k} \times \widthk{k} \times \mk{k}}$) is a regular convolution operation with kernel size 1 ($\kernelsize = 1$). The weight matrix that we will use for this operation is $\wk{k, pw} \inreal{ 1 \times 1 \times \mk{k-1} \times \mk{k}}$. The complexity of this operation is
-$$ \bigo{\lfkt{k}{pw}} = \bigo{ \heightk{k}\widthk{k}\mk{k-1}\mk{k}}$$
-
-Since we have defined depthwise and pointwise convolutions, we can combine them to describe separable convolution function as
-$$\lftk{SConv}{k} : \real{\heightk{k-1} \times \widthk{k-1} \times \mk{k-1}} \rightarrow \real{\heightk{k} \times \widthk{k} \times \mk{k}}$$
-$$ \lftk{SConv}{k}(\ok{k-1}) = \lftk{pw}{k} ( \lftk{dw}{k}(\ok{k-1}) ) $$
-The complexity of this operation is
-\begin{equation*}
-\begin{split}
-\bigo{\lftk{SConv}{k}} =& \bigo{\lftk{pw}{k} + \mathcal{O} (\lftk{dw}{k}} \\
-=& \bigo{\heightk{k}\widthk{k}\mk{k-1}\mk{k} + \heightk{k}\widthk{k}\kernelsize^2\mk{k-1}} \\
-=& \bigo{\heightk{k}\widthk{k}\mk{k-1}(\mk{k} + \kernelsize^2)}
-\end{split}
- \end{equation*}
-
-\section{Pruning}
-
-Pruning aims to reduce the model complexity by \textit{deleting} the parameters that has low or no impact on the result. \cite{lecun1989optimal} has shown that using the second order derivative of a parameter, we can estimate the effect it will have on the training loss. By removing the parameters that have low effect in the outcome, they have reduced the network complexity and increased accuracy. \cite{Hu:2016aa} has shown that there may be some neurons that are not being activated by the activation function (i.e. $\RELU$ in their case). Therefore, they count the activations in neurons and remove the ones that have are not getting activated. Following pruning, they retrain their network and achieve better accuracy than non-pruned network. \cite{han2015learning} shows that we can prune the weights that are very close to 0. By doing that they reduce the number of parameters in some networks about 10 times with no loss in accuracy. To do that, they train the network, prune the unnecessary weights, and train the remaining network again.  \cite{tu2016reducing} shows that using Fisher Information Metric we can determine the importance of a weight. Using this information they prune the unimportant weights. They also use Fisher Information Metric to determine the number of bits to represent individual weights. Also, \cite{reed1993pruning} compiled many pruning algorithms.
-
-\subsection{Pruning Weights}
-This subcategory of pruning algorithms try to optimize the number of floating point operations by removing some individual values. In theory, it should benefit the computational complexity to remove individual scalars from $\wk{k}$. However, in practice, we are defining our layers using dense matrix multiplications. To our knowledge, multiplying two dense matrices is faster than multiplying a dense matrix with a sparse matrix, unless we prune about 90\% of the weight matrix. 
-
-\subsection{Pruning Nodes}
-Since it is not possible to remove individual weights and reduce the computational complexity, we are going to look at another case of pruning. This case focuses on pruning a node and all the weights connected to it. Let us assume two fully connected layers, $k$ and $k+1$. The computational complexity of computing the outputs of these two layers would be $\bigo{\FCk{k+1}(\FCk{k}(\ok{k-1})} = \bigo{\mk{k}(\mk{k-1} + \mk{k+1}}$. Assuming that we have removed a single node from layer $k$, this complexity would drop by $\mk{k-1} + \mk{k+1}$. 
-
-Similar to the fully connected layer, a convolutional layer $k$ also contains $\mk{k}$ nodes. The only difference is, in a convolutional layer, these nodes are repeated in dimensions $H_k$ and $W_k$. Therefore, it is possible to apply this technique to convolutional layers. 
-
-We will explain and use two simpler pruning criteria. 
-
-\subsubsection{Activation Counts}
-We can count the activations per node to determine which nodes are not used. We can set a range using the mean and variance of activation counts and prune the nodes outside this range. By doing so, we can determine the nodes that are not frequently used or the nodes that are too frequently used.
-
-\subsubsection{Activation Variance}
-We can also collect statistics about output values per node. Using this information it is possible to determine which nodes are more important for the results by calculating the variance per node and removing the low variance nodes regardless of the mean value.
-
-\subsection{Pruning Convolutional Layers}
-Introduced by \cite{hinton2006reducing}, autoencoders consist of encoder and decoder blocks. Encoder blocks use convolution operations to reduce the dimensionality of input. Decoder blocks use deconvolution operation to increase the dimensionality back to it's original form. The output of encoders are approximations of the input. 
-
-We use autoencoders in some of our pruning experiments because autoencoders have a clearly comparable baseline. In the baseline of an autoencoder, the dimensionality of the input would be equal to the output dimensions of every layer. Assuming an input $\xn{n} \inreal{ \heightk{0} \times \widthk{0} \times \mk{0}}$, we can assume the baseline autoencoder for this input by satisfying the following equality for every layer
-$$ \heightk{k}  \widthk{k} \mk{k} = \heightk{0} \widthk{0}  \mk{0} $$
-
-Normally, an autoencoder aims to reduce the dimensionality using encoder blocks. This baseline definition is not good as an encoder, but it is a tool to compare our results.
-
-
-
-\iffalse
-\subsection{Activation Based Pruning - Fully Connected Layers} \label{sec:activation-based-pruning-convolution}
-Activation based pruning, works by looking at individual values in layers, and prunes the layer and corresponding weight row/columns completely. To visualize this, we will assume that the fully connected layers we have defined are, trained to some extent, and activated using $\RELU$ activations. With this definition, if we apply our dataset and count the number of activations in $\mathbf{l_1}$ and $\mathbf{l_2}$, we may realize that there are some neurons that are not being activated at all. By removing these neurons from the layers, we can reduce the number of operations. This removal operation is done by removing neurons based on their activations. 
-\todoin{add figure to show what happens when we prune}
-
-\subsection{Activation Based Pruning - Convolution and Deconvolutions}
-\todoin{Put references for conv and deconv operations. }
-In theory, convolution operation is a matrix multiplication applied on a sliding window. Thus, counting the output feature activations of a convolution operation, we can apply activation based pruning. 
-
-\subsection{Second Order Derivatives (Fischer Information Matrix)}
-\fi
-
-\section{Quantization}
-A floating point variable can not represent all decimal numbers perfectly. An n-bit floating point variable can only represent $2^{n}$ decimals. The decimals that can not be represented perfectly using 32-bits are going to be represented with some error. Quantization is the process used to represent values using less bits and some error. 
-
-At a higher level, the computational complexity does not depend on number of bits. But if we dive deeper in the computer architecture, using less bits to represent variables provide some major advantages. As the amount of bits get lesser, amount of cpu-cycles to perform an operation reduces and the cost of transferring data from memory to cpu cache reduces. Also it increases the amount of data that can fit into cache. One major disadvantage is, most architectures implement optimizations that speed up 16/32/64-bit floating point operations. By using less bits, we are giving up on these optimizations. 
-
-\subsection{Weight Clustering}
-Introduced by \cite{nowlan1992simplifying}, weight clustering starts with regular weight matrices. Once model is trained, they use clustering to find a set of weights($\all\weights' \inreal{a}$) that approximate the model. Then they store the cluster index per weight in $d^{(k)} \in \mathbb{N}^{\mk{k-1} \times \mk{k}}$. By redefining $\wk{k}_{i,j} = \all\weights'_{d^{(k)}_{i,j}}$, they perform weight clustering. Please note that this method does not necessarily reduce model complexity by itself. It reduces the model size by storing indices using less bits. In theory, such a method when applied before factorization should provide a lower rank in low-rank decomposition. 
-
-\section{Improving Network Efficiency}
-
-\subsection{Residual Connections}
-\cite{He:2015aa} introduced a method called residual connections. Let us assume blocks to be groups of consecutive layers in our network. We create a residual connection when we add the input of a block to the output of last layer in the block to calculate the output of the block. Let us assume a block $b$ with input $\ok{b-1} \inreal{\mk{b-1}}$ and output  $\ok{b} \inreal{\mk{b}}$. We call these two blocks residually connected if we perform ${\ok{b}}' = \ok{b} + \ok{b-1}$ and set ${\ok{b}}'$ as the input of the next block. 
-
-Residual connections allow us to train deeper networks by preventing the vanishing gradient problem. As we increase the number of layers in a neural network, the gradient values for weights in the former layers start getting smaller and smaller. They get so small that they become irrelevant and do not change anything. Residual connections increase the effect of deeper layers on the output. Therefore, their gradients do not vanish because they have significant contribution to the result.
-
-Assume that we have residually connected layers from layer $a$ to layer $b$. The output of layer $b$ would be equal to
-$$ \ok{b} = \lfk{b}(\ok{b-1}) + \sum_{k=a}^{b-1} \ok{k} $$
-Then the gradient of the former layers would have terms that are independent of the following layers, solving the vanishing gradient problem.
-
-\cite{He:2015aa} trained networks with and without residual connections on ImageNet dataset. Their results show that introduction of the residual connections reduce the top-1 error rate of their 34 layer network from $28.54\%$ to $25.3\%$.
-
-\cite{He:2015aa} also introduced two types of residually connected blocks. The first is called a residual block, consisting of two convolution operations and a residual connection between the input and the output of the block. The second is called a residual bottleneck block, consisting of three convolution operations. First reducing number of channels with a one by one kernel, second applying a three by three kernel, third applying another one by one kernel to increase the number of dimensions. They have used residual blocks to train networks up to 34 layers. For networks having 50 or more layers, they have used the residual bottleneck block. Their 50-layer network using residual bottleneck blocks achieves $22.85\%$ top-1 error rate on ImageNet dataset while their 34-layer network is achieving $25.3\%$ top-1 error rate.
-
-
 \subsection{Batch Normalization}
 \cite{ioffe2015batch} introduced a method called batch normalization. Batch normalization aims to normalize the output distribution of a every node in a layer. By doing so it allows the network to be more stable. 
 
@@ -316,12 +202,6 @@ Assume the layer k with $\ok{k} \inreal{\mk{k}}$ where $\mk{k}$ is the number of
 
 Since we are interested in normalizing the nodes, even if $k$ was a convolutional layer, the shapes of these parameters would not change. Therefore, batch normalization function $\textrm{BN}$ can be defined as 
 $$ BN(\ok{k}) = \frac{\gamma^{(k)}(\ok{k}-\mu^{(k)})}{\sigma^{(k)}}+\beta^{(k)} $$
-
-\iffalse
-\subsubsection{Fused Batchnorm}
-Instead of directly implementing the formula, they implement a more efficient version of it in Fused Batch normalization. 
-\todoin{more details and better description here.}
-\fi
 
 \subsection{Regularization}
 Regularization methods aim to prevent overfitting in neural networks. Overfitting is the case where the weights of a a neural network converge for the training dataset. Meaning that the network performs very good for the training dataset, while it is not generalized to work with any other data. Regularization methods try to prevent this.
@@ -335,6 +215,7 @@ $$ L1 = \lambda \sum_{w \in \mathbf{W}} |w| $$
 \subsubsection{L2 Regularization}
 L2 regularization punishes values with a square term. Therefore, L2 regularization pushes the weights towards zero. However, it pushes the values that are greater than one or minus one more than the values in between. L2 regularization is defined as
 $$ L2 = \lambda \sum_{w \in \mathbf{W}} w^2 $$
+
 
 \iffalse
 \section{Efficient Structures}
