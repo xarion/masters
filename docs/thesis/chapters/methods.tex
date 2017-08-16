@@ -9,9 +9,9 @@ Pruning aims to reduce model complexity by \textit{deleting} the parameters that
 In this study, we are going to look at two types of pruning methods, pruning connections and pruning nodes.
 
 \subsection{Pruning Connections}
-This type of pruning methods reduce the number of floating point operations by removing some connections. In other words, as seen in Figure~\ref{fig:weight_pruning}, they remove individual values from weight matrices. In theory, removing such connections from a weight matrix (i.e. $\wk{k}$) could benefit the computational complexity. However, in practice, we represent the connections between layers using dense weight matrices. To be able to \textit{remove} weights in such a setting, we need to convert these dense weight matrices to sparse weight matrices. However, to our knowledge, operating with dense matrices is much faster than operating with sparse matrices, unless the sparse matrix is smaller than 90\% of the weight matrix. Because of this limitation, we will not apply this method it to directly reduce the computational cost. However, we will make use of this method when we are investigating approximation methods in Section~\ref{sec:approximation}.
+This type of pruning methods reduce the number of floating point operations by removing some connections. In other words, as seen in Figure~\ref{fig:weight_pruning}, they remove individual values from weight matrices. In theory, removing values from a weight matrix benefits the computational complexity. In practice, we represent the connections between layers using dense weight matrices and to be able to \textit{remove} weights and reduce complexity in such a setting, we need to convert these dense weight matrices to sparse weight matrices. However, the implementation of dense to dense matrix multiplications can be optimized much better than the implementation of sparse to dense matrix multiplications because they access memory indices very predictably. Therefore, unless we prune a substantially large part (about $90\%$) of the weight matrix, we would be slowing down the operation. Because of this situation, we will not apply this method using sparse matrices. However, we will make use of this method using dense matrices when we are investigating approximation methods in Section~\ref{sec:approximation}.
 
-To determine the nodes to be pruned, we will look at one simple criteria.
+To determine the nodes to be pruned, we will look at one simple criterion.
 
 \subsubsection{Irrelevant Connections}
 One way to prune weights is to remove relatively irrelevant connections. To do so, we will set a threshold and remove the absolute values below that threshold. To determine this threshold we will make use of the mean and the variance of weight matrices. By finding a different threshold for different weight matrices, we will try to maximize the efficiency of this method.
@@ -39,10 +39,10 @@ This type of pruning methods reduce the number of floating point operations by r
 
 Similar to the fully connected layer, a convolutional layer $k$ also contains $\mk{k}$ nodes. The only difference is, in a convolutional layer, these nodes are repeated in dimensions $H_k$ and $W_k$. Therefore, it is possible to apply this technique to convolutional layers. 
 
-To determine the nodes to be pruned, we will look at two simple pruning criteria, activation counts and activation variance. Then we will explain the training cycles that applies pruning.
+To determine the nodes to be pruned, we will look at two simple pruning criteria, activation counts and activation variance. Then we will explain the training cycles that apply pruning.
 
 \subsubsection{Activation Counts}
-We can count the activations per node to determine which nodes are not used. We can set a range using the mean and variance of activation counts and prune the nodes outside this range. By doing so, we can determine the nodes that are not frequently used or the nodes that are too frequently used.
+Assuming $\RELU$ activations, we can count the number of activations per node and determine which nodes are not used. We can set a range using the mean and variance of activation counts and prune the nodes outside this range. By doing so, we can determine the nodes that are not frequently used or the nodes that are too frequently used.
 
 \subsubsection{Activation Variance}
 We can also collect statistics about output values per node. Using this information it is possible to determine which nodes are more important for the results by calculating the variance per node and removing the low variance nodes. 
@@ -90,7 +90,7 @@ We have calculated the loss using $\RMSE$, and used Momentum Optimizer (learning
 \end{figure}
 
 \subsubsection{Convolutional Neural Networks}
-To extend our pruning experiments to convolutional neural networks, we have trained an autoencoder on MNIST dataset. 
+To extend our pruning experiments to convolutional neural networks, we have trained an autoencoder on the MNIST dataset. 
 
 Introduced by \cite{hinton2006reducing}, autoencoders consist of encoder and decoder blocks. Encoder blocks use convolution operations to reduce the dimensionality of input. Decoder blocks use deconvolution operation to increase the dimensionality back to it's original form. The output of encoders are approximations of the input. 
 
@@ -98,7 +98,7 @@ We use autoencoders because they have a clear baseline. In the baseline autoenco
 
 $$ \heightk{k}  \widthk{k} \mk{k} = \heightk{0} \widthk{0}  \mk{0} $$
 
-Normally, an autoencoder aims to reduce the dimensionality using encoder blocks. This baseline definition is not good as an encoder, but a good comparison for our results.
+Normally, an autoencoder aims to reduce the dimensionality using encoder blocks. This baseline definition is not good as an encoder, because the dimensionality remains the same in every layer but it is a good comparison for our results.
 
 We have defined our autoencoder with two encoder and two decoder layers. Each encoder layer ($\convk{1}$ and $\convk{2}$) is running a convolution with kernel size $3$ and stride of $2$. After each encoding layer, we add bias, apply batch normalization and $\RELU$ activation. Each decoding layer ($\lftk{Deconv}{3}$ and $\lftk{Deconv}{4}$) is running deconvolutions with kernel size of 3 and strides of two. After each, we add bias and apply batch normalization. The first decoding layer($\lftk{Deconv}{3}$) is followed by $\RELU$ activation and the last one is followed by $tanh$ activation. We defined the loss as the root mean square of the input and the output of the network. The initial autoencoder configuration can be seen in Figure~\ref{fig:initial_autoencoder} and the baseline autoencoder configuration can be seen in Figure~\ref{fig:baseline_autoencoder}.
 
@@ -182,17 +182,17 @@ where $U' \inreal{\mk{k-1} \times n}$, $V'^T \inreal{n \times \mk{k}}$, and $S' 
 \end{figure}
 \fi
 \subsection{Quantization}
-A floating point variable can not represent all decimal numbers perfectly. An n-bit floating point variable can only represent $2^{n}$ decimals. The decimals that can not be represented perfectly using these bits are going to be represented with some error. Quantization is the process of representing values using less bits and some error. For example, \cite{han2015deep} uses 5-bits to represent decimals, instead of 32-bit floating point variables. 
+A floating point variable cannot represent all decimal numbers perfectly. An n-bit floating point variable can only represent $2^{n}$ decimals. The decimals that cannot be represented perfectly using these bits are going to be represented with some error. Quantization is the process of representing values using fewer bits and some error. For example, \cite{han2015deep} uses 5-bits to represent decimals, instead of 32-bit floating point variables.
 
-At a higher level, the computational complexity does not depend on number of bits. But if we dive deeper in the computer architecture, using less bits to represent variables provide some major advantages. As the number of bits gets smaller, the required cpu-cycles to perform an operation and the cost of transferring data from memory to cpu cache reduces. Moreover, it increases the amount of data that can fit into the cache. One disadvantage is, most architectures implement optimizations that speed up 16/32/64-bit floating point operations. By using less bits, we are giving up on these optimizations. 
+At a higher level, the computational complexity does not depend on number of bits. But if we dive deeper in the computer architecture, using fewer bits to represent variables provide some major advantages. As the number of bits gets smaller, the required cpu-cycles to perform an operation and the cost of transferring data from memory to cpu cache reduces. Moreover, it increases the amount of data that can fit into the cache. One disadvantage is, most architectures implement optimizations that speed up 16/32/64-bit floating point operations. By using fewer bits, we are giving up on these optimizations.
 
 
 \subsubsection{Weight Clustering}
-Also as known as \textit{hashing trick} or \textit{feature hashing}, this method aims to represent weight matrices using a set of vaues. \cite{nowlan1992simplifying} trains their model with regular weight matrices. Once model is trained, they use clustering (i.e k-means) to find a set of weights($\all\weights' \inreal{a}$) that approximate the model. Then they store the cluster index per weight in $d^{(k)} \in \mathbb{N}^{\mk{k-1} \times \mk{k}}$. By redefining $\wk{k}_{i,j} = \all\weights'_{d^{(k)}_{i,j}}$, they perform weight clustering. 
+Also as known as \textit{hashing trick} or \textit{feature hashing}, this method aims to represent weight matrices using a set of vaues. \cite{nowlan1992simplifying} trains their model with regular weight matrices. Once the model is trained, they use clustering (i.e k-means) to find a set of weights($\all\weights' \inreal{a}$) that approximate the learned weights. Then they store the cluster index per weight in $d^{(k)} \in \mathbb{N}^{\mk{k-1} \times \mk{k}}$. By redefining $\wk{k}_{i,j} = \all\weights'_{d^{(k)}_{i,j}}$, they perform weight clustering. 
 
 \cite{chen2015compressing} uses a method called frequency sensitive hashing. Assuming that low-frequency weights have more importance than high-frequency weights, they cluster the weights in similar frequencies, then they create shared weights for these clusters, By doing so, they emphasize the low-frequency (high importance) features.
 
-Please note that weight clustering methods do not necessarily reduce model complexity. However, they reduce the model size by storing indices using less bits. In theory, these methods should also provide a lower rank in low rank decomposition. 
+Please note that weight clustering methods do not necessarily reduce model complexity. However, they reduce the model size by storing indices using fewer bits. In theory, these methods should also provide a lower rank in low rank decomposition.
 
 \section{Convolution Operation Alternatives}
 \label{sec:conv_alternatives}
@@ -222,7 +222,7 @@ we can represent a convolution operation with less computational complexity.
 \subsection{Separable Convolutions}
 Suggested by \cite{sifre2014rigid}, separable convolutions separate the standard convolution operation into two parts. These parts are called depthwise convolutions and pointwise convolutions. Separable convolutions are used by \cite{chollet2016xception}, \cite{howard2017mobilenets} and \cite{howard2017mobilenets} to reduce complexity of neural networks.
 \subsubsection{Depthwise Convolution}
-Depthwise convolutions (also referred to as inner convolution) apply a separate convolution operation  on every input channel. Therefore, number of output channels of a depthwise convolution is the number of input channels times the number of output channels of these inner convolutions. In other words, it results with a number of output channels that is equal to (or folds of) the number of input channels. Unless defined otherwise, we use inner convolution operations with one output channel. Therefore the number of input channels are equal to the number of output channels for our depthwise convolutions. Please see Figure~\ref{fig:depthwise_conv} for a visual explanation.
+Depthwise convolutions (also referred to as inner convolution) apply a separate convolution operation  on every input channel. Therefore, the number of output channels of a depthwise convolution is the number of input channels times the number of output channels of these inner convolutions. In other words, it results with a number of output channels that is equal to (or multiples of) the number of input channels. Unless defined otherwise, we use inner convolution operations with one output channel. Therefore the number of input channels are equal to the number of output channels for our depthwise convolutions. Please see Figure~\ref{fig:depthwise_conv} for a visual explanation.
 
 Formally, given a patch $ \pki{k-1}{(I,J)} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$, depthwise convolution has a single weight matrix $\wk{k, dw} \inreal{\kernelsize \times \kernelsize \times \mk{k-1}}$. Let us assume that the subscripts of patch $\pki{k-1}{(I,J)}$ and weight matrix $\wk{k, dw}$ are described as $\pki{k-1}{(I,J),i} \inreal{\kernelsize \times \kernelsize \times 1}$ and $\wki{k, dw}{i} \inreal{\kernelsize \times \kernelsize \times 1}$.
 
@@ -260,8 +260,8 @@ The complexity of this operation is
 \end{split}
  \end{equation*}
 
-\subsection{Non-Linear Separable Convolutions}
-\cite{howard2017mobilenets} proposed that, adding batch normalization and $\RELU$ activations between depthwise and pointwise convolutions in separable convolutions would increase the model accuracy. 
+\subsubsection{Non-Linear Separable Convolutions}
+\cite{howard2017mobilenets} proposed that, applying batch normalization and $\RELU$ activations after depthwise convolutions in separable convolutions would increase the model accuracy. Therefore, we also consider \textit{non-linear separable convolution} as an alternative to convolution operation.
 
 \subsection{Experiments}
 In general, convolution operations are expensive. Here we experiment with alternative convolution operations to see which one is the better alternative. To see the differences between these operations, we try to compare them on two tasks, one classifying MNIST dataset, the other classifying CIFAR-10 dataset. For these experiments we have defined a baseline model consisting of three convolutional layers followed by a fully connected layer. Each convolutional layer has kernel size 5. Convolutional layers are followed with bias, batch normalization, and $\RELU$ activations. First two convolution layers are followed by a max pooling layer with kernel size $2$ and strides of $2$. The third convolutional layer is followed by a global average pooling layer. We have trained the model with $\SCE$ loss and momentum optimizer with momentum $0.9$ and learning rate $0.1$ divided by 10 in steps $[20000, 30000, 40000]$. We train this model for $50000$ steps with batch size $128$. 
@@ -280,7 +280,8 @@ We also use a few operations using large kernels ($5\times 5$). First, kernel de
 \end{figure}
 
 \section{Small Models}
-Another approach to creating neural networks with low computational cost is to design smaller models. These type of models would be designed to have small input dimensions or do aggressive dimensionality reduction in first layers, use alternative convolution operations, have fewer layers and/or have less number of features per layer. For example, \cite{howard2017mobilenets} introduced a series of models with varying input dimensions and number of features. Here, we will define and train some small models for CIFAR-10 and ImageNet datasets. While defining our model, we will make use of the knowledge we have gained from the experiments we ran in Section~\ref{sec:conv_alternatives}. We will also use the methods we introduced in Sections~\ref{sec:approximation} and~\ref{sec:pruning} and try to make our models even smaller.
+\label{sec:small_models}
+Another approach to creating neural networks with low computational cost is to design smaller models. These type of models would be designed to have small input dimensions or do aggressive dimensionality reduction in first layers, use alternative convolution operations, have fewer layers and/or have a smaller number of features per layer. For example, \cite{howard2017mobilenets} introduced a series of models with varying input dimensions and number of features. Here, we will define and train some small models for CIFAR-10 and ImageNet datasets. While defining our model, we will make use of the knowledge we have gained from the experiments we ran in Section~\ref{sec:conv_alternatives}. We will also use the methods we introduced in Sections~\ref{sec:approximation} and~\ref{sec:pruning} and try to make our models even smaller.
 
 \subsection{Models}
 Both models that we have defined were inspired by the \cite{He:2015aa} which introduces a connection that improves the performance of a neural network. Before going into the details of our models, we will explain the concepts introduced by \cite{He:2015aa}.
@@ -325,7 +326,7 @@ Since the output of a residually connected block includes the independent output
   \caption{Residually connected blocks, visualized as proposed by \cite{He:2015aa}. $\RELU$ non-linearity, batch normalization and identity mappings hidden for simplicity.}
   \label{fig:residual_blocks}
 \end{figure}
-For our models we chose to use the residual blocks. $1 \times 1$ convolutions in residual bottleneck blocks are relatively more expensive and we cannot reduce their cost using an alternative operation. Furthermore, residual bottleneck blocks are not a good fit for networks with less layers because they do not expand the receptive field as aggressively as residual blocks.
+For our models we chose to use the residual blocks. $1 \times 1$ convolutions in residual bottleneck blocks are relatively more expensive and we cannot reduce their cost using an alternative operation. Furthermore, residual bottleneck blocks are not a good fit for networks with fewer layers because they do not expand the receptive field as aggressively as residual blocks.
 
 \subsubsection{Separable Residual Blocks}
 To create separable residual blocks, we have replaced the convolution layers with separable convolution layers in residual blocks. Following \cite{He:2015aa}, \cite{he2016identity} proposed that using full pre-activation residual connections increases the model performance. This type of residual connections residually connect the outputs before batch normalization and $\RELU$ activation. We have illustrated these connections with separable residual blocks in Figure~\ref{fig:full-preactivation}.
@@ -341,7 +342,7 @@ When necessary, we apply strides in the first depthwise convolution and we incre
 \end{figure}
 
 \subsubsection{First Convolutional Layer}
-Assume that the first layer has 3 input and 32 output channels. For this layer the number of operations for the convolution operation ($\kernelsize*\kernelsize*\mk{k-1}*\mk{k} = 3*3*3*16 = 864$) is sufficiently higher than the separable convolution alternative ($\kernelsize*\kernelsize*\mk{k-1} + \mk{k-1}\mk{k} = 3*3*3 + 3*32=123$). However, for an actual image input, separable convolution comes with a disadvantage. The channels of the input image are RGB color channels, which can not be assumed independent. Therefore, since separable convolutions start with a depthwise convolution, they assume that we can apply independent convolutions on different channels, so we think that they are inefficient for such an input.
+Assume that the first layer has 3 input and 32 output channels. For this layer the number of operations for the convolution operation ($\kernelsize*\kernelsize*\mk{k-1}*\mk{k} = 3*3*3*16 = 864$) is sufficiently higher than the separable convolution alternative ($\kernelsize*\kernelsize*\mk{k-1} + \mk{k-1}\mk{k} = 3*3*3 + 3*32=123$). However, for an actual image input, separable convolution comes with a disadvantage. The channels of the input image are RGB color channels, which cannot be assumed independent. Therefore, since separable convolutions start with a depthwise convolution, they assume that we can apply independent convolutions on different channels, so we think that they are inefficient for such an input.
 
 \subsubsection{CIFAR-10 Model}
 For CIFAR-10, we define a very small model consisting of a convolutional layer followed by 6 separable residual blocks.  The model is illustrated in Figure~\ref{fig:separable_resnet_cifar10}. For identity mapping we have used average pooling with strides and kernel size of two. To multiply the number of channels, we have padded the feature matrices with zeros.
@@ -363,7 +364,7 @@ We preprocess the images using the routines defined in Tensorflow tutorials\foot
 We recreated the Resnet-34 using separable residual blocks instead of residual blocks. The resulting model is shown in Figure~\ref{fig:model}. For identity mappings, we have used $1 \times 1$ convolutions with strides of two because \cite{He:2015aa} shows that they work better for ImageNet dataset.
 
 \subsubsection{Aggressive Dimensionality Reduction in ImageNet}
-In \cite{He:2015aa}, models defined for ImageNet start with a $7 \times 7$ convolution with strides of two, which followed by a max pooling layer with strides of two and kernel size 2. If we think about this design choice, we see that the kernel size choice ($7 \times 7$) is to cover the receptive field to minimize the loss of information caused by two consecutive layers with strides of two. From another point of view, those two layers decrease the image size from $224 \times 224$ to $56 \times 56$. This decreases the computational cost of future layers. When we apply such a convolution, the first convolutional layer becomes very complex compared to the rest of the network. To prevent that we propose a different first layer. We change this $7 \times 7$ convolution followed by a max pooling layer with two $3 \times 3$ convolutions 
+In \cite{He:2015aa}, models defined for ImageNet start with a $7 \times 7$ convolution with strides of two, which followed by a max pooling layer with strides of two and kernel size 2. If we think about this design choice, we see that the kernel size choice ($7 \times 7$) is to cover the receptive field to minimize the loss of information caused by two consecutive layers with strides of two. From another point of view, those two layers decrease the image size from $224 \times 224$ to $56 \times 56$. This decreases the computational cost of future layers. When we apply such a convolution, the first convolutional layer becomes very complex compared to the rest of the network. To prevent that we propose a different first layer. We change this $7 \times 7$ convolution followed by a max pooling layer with two $3 \times 3$ convolutions. 
 Following that, before applying the max pooling layer, we apply a $3 \times 3$ depthwise convolution that multiplies the number of channels with two. Then we apply a $1 \times 1$ convolution (pointwise) to that.  By doing so we reduce the complexity of these layers about four times. 
 
 We trained our model in ImageNet training dataset. We used gradient descent optimizer and learning rates $0.01$, $0.001$, $0.0001$ for steps $0$ to $150.000$, $150.000$ to $200.000$ and $250.000$ to $300.000$ respectively. We have defined the loss with $\SCE$ of the truth and prediction, with an addition of L2 norm of weights multiplied by $0.001$. We train our model using the training images with batch size $128$.
@@ -383,7 +384,7 @@ After training these models, we try to apply the methods we have defined in Sect
 \subsection{Pruning Small Models}
 To be able to prune nodes on these models, we have defined two new pruning routines.
 \subsubsection{Pruning Residual Connections}
-The addition operation in the residual block creates a one-to-one relationship between the output channels of different blocks. With the existence of such a relationship, it is not possible to prune a residual block's output nodes without pruning the former or latter blocks. Therefore, we group the separable residual blocks that are residually connected with same dimensions or without identity mappings and refer to them as directly connected (in Figure \ref{fig:model}, residual blocks represented with the same colors are directly connected). Then, using a pruning criteria, we calculate the channels to keep for the input and output of every residual block. We union the nodes to be kept in those layers and prune the remaining nodes from the inputs and outputs of the directly connected residual blocks. We also prune the pointwise convolutions within residual blocks separately. 
+The addition operation in the residual block creates a one-to-one relationship between the output channels of different blocks. With the existence of such a relationship, it is not possible to prune a residual block's output nodes without pruning the former or latter blocks. Therefore, we group the separable residual blocks that are residually connected with same dimensions or without identity mappings and refer to them as directly connected (in Figure \ref{fig:model}, residual blocks represented with the same colors are directly connected). Then, using a pruning criterion, we calculate the channels to keep for the input and output of every residual block. We union the nodes to be kept in those layers and prune the remaining nodes from the inputs and outputs of the directly connected residual blocks. We also prune the pointwise convolutions within residual blocks separately.
 
 \subsubsection{Pruning Depthwise Convolutions}
 Since depthwise convolutions multiply the number of channels (nodes) by a number, their number of output channels are dependent on their number of input channels. Therefore, if the output channels of the previous layer are pruned, the corresponding input channels of the next layer should also be pruned.
@@ -399,7 +400,7 @@ We set weight values that are smaller than a threshold to 0. Despite the fact th
 We round the weights after the second decimal. This is a very basic method of weight clustering, however it may help finding a lower rank. 
 
 \subsubsection{Factorization}
-We factorize the trained, pruned and rounded weights using SVD. We can not apply this method to depthwise convolution operation. So we only factorize the convolution, pointwise convolution and fully connected weights. To do that, we calculate $U$, $S$ and $V$ for each of the weight matrices. We lower the rank of the decomposition by one. Then, we calculate the approximation error using mean squared error between the original matrix and the low rank weight matrices. We chose this method because it scales for the number of parameters in the weight matrix. We keep reducing the rank by 1 while the approximation error is above the predefined error threshold. When the error threshold is reached, we check if this low rank decomposition would actually reduce the complexity. If it does, we apply factorization. Otherwise we use the original weights.
+We factorize the trained, pruned and rounded weights using SVD. We cannot apply this method to depthwise convolution operation. So we only factorize the convolution, pointwise convolution and fully connected weights. To do that, we calculate $U$, $S$ and $V$ for each of the weight matrices. We lower the rank of the decomposition by one. Then, we calculate the approximation error using mean squared error between the original matrix and the low rank weight matrices. We chose this method because it scales for the number of parameters in the weight matrix. We keep reducing the rank by 1 while the approximation error is above the predefined error threshold. When the error threshold is reached, we check if this low rank decomposition would actually reduce the complexity. If it does, we apply factorization. Otherwise we use the original weights.
 
 \subsubsection{Quantization}
 We quantize the weights from 32-bits to 8-bit and run performance and accuracy benchmarks.
@@ -420,12 +421,12 @@ In Table~\ref{tbl:experiments} we provide a summary of the experiments we ran.
 \hspace{-35px}
 \begin{tabular}{|l|l|l|l|}
 \thead{Method} & \thead{Model} & \thead{Dataset(s)} & \thead{Variables} \\ \hline
-Pruning Nodes & fully connected & summation & \begin{tabular}[c]{@{}l@{}}regularization, \\ distortion, \\ activation counts, \\ activation variance\end{tabular} \\ \hline
-Pruning Nodes & autoencoder & MNIST & \begin{tabular}[c]{@{}l@{}}regularization, \\ distortion, \\ activation counts, \\ activation variance\end{tabular} \\ \hline
-Convolution Alternatives & baseline model & \begin{tabular}[c]{@{}l@{}}CIFAR-10\\ MNIST\end{tabular} & \begin{tabular}[c]{@{}l@{}}convolution, \\ kernel composing, \\ separable \\ non-linear separable \end{tabular} \\ \hline
-Small Models & CIFAR-10 Model & CIFAR-10 & \begin{tabular}[c]{@{}l@{}}Number of layers, \\ number of features\end{tabular} \\ \hline
-Small Models & ImageNet Model & ImageNet &  \\ \hline
-\begin{tabular}[c]{@{}l@{}}Approximation Methods $+$\\ Pruning Connections\end{tabular}  & CIFAR-10 Model & CIFAR-10 & \begin{tabular}[c]{@{}l@{}}Error Threshold\\ Pruning Threshold\end{tabular}  \\ \hline
+Pruning nodes & Fully connected & Summation & \begin{tabular}[c]{@{}l@{}}Regularization, \\ distortion, \\ activation counts, \\ activation variance\end{tabular} \\ \hline
+Pruning nodes & Autoencoder & MNIST & \begin{tabular}[c]{@{}l@{}}Regularization, \\ distortion, \\ activation counts, \\ activation variance\end{tabular} \\ \hline
+Convolution alternatives & Baseline model & \begin{tabular}[c]{@{}l@{}}CIFAR-10\\ MNIST\end{tabular} & \begin{tabular}[c]{@{}l@{}}Convolution, \\ kernel composing, \\ separable \\ non-linear separable \end{tabular} \\ \hline
+Small models & CIFAR-10 model & CIFAR-10 & \begin{tabular}[c]{@{}l@{}}Number of layers, \\ number of features\end{tabular} \\ \hline
+Small models & ImageNet model & ImageNet &  \\ \hline
+\begin{tabular}[c]{@{}l@{}}Approximation methods $+$\\ pruning connections\end{tabular}  & CIFAR-10 Model & CIFAR-10 & \begin{tabular}[c]{@{}l@{}}Error threshold\\ pruning threshold\end{tabular}  \\ \hline
 \end{tabular}
 \caption{A summary of all experiments we ran.}
 \label{tbl:experiments}
