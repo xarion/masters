@@ -135,14 +135,16 @@
 
 \title{
 {\textbf{Master's Thesis}\\Faster Convolutional Neural Networks}\\
-{\large Radboud University, Nijmegen}
+{\normalsize Master of Science in Artificial Intelligence} \\
+{\normalsize Faculty of Social Sciences, Radboud University, Nijmegen}
 }
-\author{Erdi \c{C}all{\i}}
+\author{Erdi \c{C}all{\i} \\  \normalsize s4600673 \\ {\normalsize Supervised by} \\ {Luc Hendriks, Marcel van Gerven}}
 
+\date{Date of Graduation: 31 August, 2017}
 \begin{document}
 \maketitle
 \chapter*{Abstract}
-There exists a gap between the computational cost of state of the art image processing models and the processing power of publicly available devices. This gap is reducing the applicability of these promising models. Trying to bridge this gap, first we investigate some methods to reduce the computational cost of a model. Secondly, we look for alternative operations to design state of the art models. Using these alternative operations, we train a model for the CIFAR-10 classification task. Our model achieves similar results ($91.1\%$ top-1 accuracy) to ResNet-20 ($91.25\%$ top-1 accuracy) with 2 times smaller the model size and 3 times fewer floating point operations. We observe that it is not possible to reduce the computational cost of our model using techniques such as pruning and factorization.
+There exists a gap between the computational cost of state of the art image processing models and the processing power of publicly available devices. This gap is reducing the applicability of these promising models. Trying to bridge this gap, first we investigate pruning and factorization to reduce the computational cost of a model. Secondly, we look for alternative convolution operations to design state of the art models. Thirdly, using these alternative convolution operations, we train a model for the CIFAR-10 classification task. Our proposed model achieves comparable results ($91.1\%$ top-1 accuracy) to ResNet-20 ($91.25\%$ top-1 accuracy) with half the model size and one-third floating point operations. Finally, we apply pruning and factorization and observe that these methods are ineffective in reducing the computational complexity and preserving the accuracy of our proposed model.
 %\chapter*{Dedication}
 %To mum and dad
 
